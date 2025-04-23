@@ -23,21 +23,21 @@ instance [Field f] [BEq f] [ToString f] : ToString (IRExpr f) where
 def compileIR [Field f] [BEq f] [ToString f] : IRExpr f → ZKBuilder f (ZKExpr f) :=
   λ expr =>
   match expr with
-  | Const n     => pure (ZKExpr.Literal n)
-  | IRExpr.Bool b      => pure (ZKExpr.Literal (if b then 1 else 0))
-  | IRExpr.Add e1 e2   => do
+  | Const n                  => pure (ZKExpr.Literal n)
+  | IRExpr.Bool b            => pure (ZKExpr.Literal (if b then 1 else 0))
+  | IRExpr.Add e1 e2         => do
     let a ← compileIR e1
     let b ← compileIR e2
     pure (ZKExpr.Add a b)
-  | IRExpr.Mul e1 e2   => do
+  | IRExpr.Mul e1 e2         => do
     let a ← compileIR e1
     let b ← compileIR e2
     pure (ZKExpr.Mul a b)
-  | IRExpr.Eq e1 e2    => do
+  | IRExpr.Eq e1 e2          => do
     let a ← compileIR e1
     let b ← compileIR e2
     pure (ZKExpr.Eq a b)
-  | IRExpr.Sub e1 e2   => do
+  | IRExpr.Sub e1 e2         => do
     let a ← compileIR e1
     let b ← compileIR e2
     pure (ZKExpr.Sub a b)
@@ -78,12 +78,3 @@ def compile [Field f] [BEq f] [ToString f] : Term f → Env f → ZKBuilder f (Z
     let t' := normalize t env
     let (ir, _) := (normalizeToIR t' IR.Env.empty).run 0
     compileIR ir
-
-theorem compiler_correctness {f} [JoltField f] [BEq f] [ToString f]
-  (t : Term f) (env : Env f) (v : Val f)
-  (h : Eval f t env v) :
-  ∃ (witness : List f),
-    let t' := normalize t env
-    let (ir, _) := (normalizeToIR t' IR.Env.empty).run 0
-    let (compiled, state) := (compileIR ir).run ⟨0, []⟩
-    semantics_zkexpr compiled witness = v.toValue := by sorry

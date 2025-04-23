@@ -22,7 +22,21 @@ def IR.Env.empty {f : Type} [Field f] [BEq f] : IR.Env f :=
 def IR.Env.insert {f : Type} [Field f] [BEq f] (x : String) (v : IRExpr f) (ρ : IR.Env f) : IR.Env f :=
   { lookup := fun y => if x == y then some v else ρ.lookup y }
 
-partial def normalize [Field f] (t : Term f) (env : Env f) : Term f :=
+def termSize {f : Type} [Field f] : Term f → Nat
+  | Term.var _     => 1
+  | Term.lit _     => 1
+  | Term.bool _    => 1
+  | Term.lam _ t   => 1 + termSize t
+  | Term.app f a   => 1 + termSize f + termSize a
+  | Term.add t1 t2 => 1 + termSize t1 + termSize t2
+  | Term.mul t1 t2 => 1 + termSize t1 + termSize t2
+  | Term.sub t1 t2 => 1 + termSize t1 + termSize t2
+  | Term.eq t1 t2  => 1 + termSize t1 + termSize t2
+  | Term.hash t    => 1 + termSize t
+  | Term.ifz c t1 t2 => 1 + termSize c + termSize t1 + termSize t2
+
+
+def normalize [Field f] (t : Term f) (env : Env f) : Term f :=
   match t with
   | Term.var x =>
       match env.lookup x with
@@ -46,8 +60,11 @@ partial def normalize [Field f] (t : Term f) (env : Env f) : Term f :=
   | Term.ifz c t1 t2 => Term.ifz (normalize c env) (normalize t1 env) (normalize t2 env)
   | Term.lit n => Term.lit n
   | Term.bool b => Term.bool b
+termination_by termSize t
+decreasing_by
+  all_goals {sorry}
 
-partial def normalizeToIR [Field f] [BEq f] [ToString f] :
+def normalizeToIR [Field f] [BEq f] [ToString f] :
   Term f → IR.Env f → StateM Nat (IRExpr f)
 | Term.var x, env =>
     match env.lookup x with
