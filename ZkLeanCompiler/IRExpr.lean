@@ -8,7 +8,6 @@ inductive IRExpr (f : Type) [Field f] [BEq f] : Type u where
   | Mul   : IRExpr f → IRExpr f → IRExpr f
   | Sub   : IRExpr f → IRExpr f → IRExpr f
   | Eq    : IRExpr f → IRExpr f → IRExpr f
-  | Hash  : IRExpr f → IRExpr f
   | IfZero : IRExpr f → IRExpr f → IRExpr f → IRExpr f
 deriving Inhabited
 
@@ -26,36 +25,34 @@ def termSize {f : Type} [Field f] : Term f → Nat
   | Term.var _     => 1
   | Term.lit _     => 1
   | Term.bool _    => 1
-  | Term.lam _ t   => 1 + termSize t
+  | Term.lam _ _ t   => 1 + termSize t
   | Term.app f a   => 1 + termSize f + termSize a
   | Term.add t1 t2 => 1 + termSize t1 + termSize t2
   | Term.mul t1 t2 => 1 + termSize t1 + termSize t2
   | Term.sub t1 t2 => 1 + termSize t1 + termSize t2
   | Term.eq t1 t2  => 1 + termSize t1 + termSize t2
-  | Term.hash t    => 1 + termSize t
   | Term.ifz c t1 t2 => 1 + termSize c + termSize t1 + termSize t2
 
 
-def normalize [Field f] (t : Term f) (env : Env f) : Term f :=
+def normalize [Field f] (t : Term f) (env : Env f) (ty : Ty) : Term f :=
   match t with
   | Term.var x =>
       match env.lookup x with
-      | some (Val.Closure body cloEnv) => normalize body cloEnv
       | some (Val.Field n) => Term.lit n
       | some (Val.Bool b)  => Term.bool b
       | none => Term.var x
+      | _ => panic! ""
   | Term.app f a =>
       match normalize f env with
-      | Term.lam x body =>
+      | Term.lam x ty body =>
           let argVal := normalize a env
           let env' := Env.insert x (Val.Closure argVal env) env
           normalize body env'
       | _ => panic! "application of non-lambda"
-  | Term.lam _ _ => panic! "lambda should not appear after normalization"
+  | Term.lam _ _ _ => panic! "lambda should not appear after normalization"
   | Term.add t1 t2 => Term.add (normalize t1 env) (normalize t2 env)
   | Term.mul t1 t2 => Term.mul (normalize t1 env) (normalize t2 env)
   | Term.sub t1 t2 => Term.sub (normalize t1 env) (normalize t2 env)
-  | Term.hash t => Term.hash (normalize t env)
   | Term.eq t1 t2 => Term.eq (normalize t1 env) (normalize t2 env)
   | Term.ifz c t1 t2 => Term.ifz (normalize c env) (normalize t1 env) (normalize t2 env)
   | Term.lit n => Term.lit n
@@ -84,9 +81,6 @@ def normalizeToIR [Field f] [BEq f] [ToString f] :
     let e1 ← normalizeToIR t1 env
     let e2 ← normalizeToIR t2 env
     pure (IRExpr.Sub e1 e2)
-| Term.hash t, env => do
-    let e ← normalizeToIR t env
-    pure (IRExpr.Hash e)
 | Term.eq t1 t2, env => do
     let e1 ← normalizeToIR t1 env
     let e2 ← normalizeToIR t2 env
@@ -96,7 +90,7 @@ def normalizeToIR [Field f] [BEq f] [ToString f] :
     let et1 ← normalizeToIR t1 env
     let et2 ← normalizeToIR t2 env
     pure (IRExpr.IfZero ec et1 et2)
-| Term.lam _ _, _ =>
+| Term.lam _ _ _ =>
     panic! "normalizeToIR: lambda abstraction not allowed in normalized IR"
 | Term.app f arg, env => do
     match f with

@@ -1,40 +1,60 @@
 import «ZkLeanCompiler».Compile
+import «ZkLeanCompiler».Semantics
 import Mathlib.Tactic.Cases
+import Mathlib.Algebra.Field.Defs
 
-/-
-Correctness claim: iF t evaluates to v in env, then For some witness, the compiled ZK expression
-evaluates to v in the ZK semantics.
+set_option linter.unusedTactic false
+
+variable {F} [JoltField F]
+
+/--
+Correctness of the constraint compiler.
+
+If a term `t` is well-scoped in an environment `env`, and evaluates to a value `v`
+under the source semantics, then compiling `t` produces a circuit expression and a
+set of constraints such that:
+
+- The constraints are satisfied by some witness assignment,
+- The compiled circuit expression evaluates to the same value `v` under that witness.
+
+This establishes semantic preservation: the behavior of the source term is faithfully
+represented by the generated constraint system and compiled ZK expression.
 -/
-
-theorem compiler_correctness {F} [JoltField F] [BEq F] [ToString F]
-  (t : Term F) (env : Env F) (v : Val F)
-  (h : Eval F t env v) :
-  ∃ (witness : List F),
-    let t' := normalize t env
-    let (ir, _) := (normalizeToIR t' IR.Env.empty).run 0
-    let (compiled, state) := (compileIR ir).run ⟨0, []⟩
-    semantics_zkexpr compiled witness = v.toValue := by
-    induction h
-    · case var env' x v₂ sevalv =>
-      let t' := normalize (Term.var x) env'
-      let ir₁:= ((normalizeToIR t' IR.Env.empty).run 0).1
-      let compiled := ((compileIR ir₁).run ⟨0, []⟩).1
-      let s := ((compileIR ir₁).run ⟨0, []⟩).2
-      simp only [t']
-      obtain ⟨ir₂, k⟩ := StateT.run (normalizeToIR t' IR.Env.empty) 0
-      let ir' := (StateT.run (normalizeToIR t' IR.Env.empty) 0).1
-      simp
-      obtain ⟨zk, s'⟩ := (StateT.run (compileIR ir₂) { allocated_witness_count := 0, constraints := [] })
-      let zk' := (StateT.run (compileIR ir₂) { allocated_witness_count := 0, constraints := [] }).1
-      simp
-      cases' v₂ with f b tm env₂
-      · use []
-        simp [semantics_zkexpr]
-        have lem : t' = Term.lit f := by
-          simp [t']
-          simp [normalize]
-          rw [sevalv]
-        sorry
-      sorry
-      sorry
-    all_goals {sorry}
+theorem compileExpr_correct
+  [JoltField F] :
+  ∀ (t : Term F) (env : Env F) (v : Val F),
+    wellScoped t env →
+    Eval F t env v →
+    ∃ (witness : List F),
+      let (compiledExpr, st) := (compileExpr t env).run initialZKBuilderState
+      constraints_semantics st.constraints witness = true ∧
+      semantics_zkexpr compiledExpr witness = Val.toValue v := by
+      intro t env v hWellScoped hEval
+      induction hEval
+      case var Ffield env₁ x' v' hLookup =>
+        -- Case: variable
+        let v'' := env₁.lookup x'
+        have hLookup' : v'' = some v' := by
+          simp [v'', hLookup]
+        let ⟨compiled, st⟩ := (compileExpr (Term.var x') env).run initialZKBuilderState
+        simp [compileExpr]
+        simp [hLookup]
+        cases v'
+        · case Field n =>
+          simp [Val.toValue, semantics_zkexpr]
+          use [n]
+          constructor
+          all_goals {constructor}
+        · case Bool b =>
+          simp [Val.toValue, semantics_zkexpr]
+          use [if b then 1 else 0]
+          constructor
+          all_goals {constructor}
+        · case Unit =>
+          simp [Val.toValue, semantics_zkexpr]
+          use []
+          constructor
+          · constructor
+          ·
+            sorry
+      all_goals {sorry}

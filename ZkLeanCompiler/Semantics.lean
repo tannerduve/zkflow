@@ -3,7 +3,7 @@ import «ZkLeanCompiler».AST
 import «ZkLeanCompiler».Builder
 import «ZkLeanCompiler».LCSyntax
 
-class JoltField (f: Type) extends Field f, BEq f, Inhabited f, Witnessable f (ZKExpr f), Hashable f
+class JoltField (f : Type) extends Field f, BEq f, ToString f, Inhabited f, Witnessable f (ZKExpr f), Hashable f
 
 inductive Value (f: Type) [JoltField f] where
   | VBool : Bool -> Value f
@@ -12,8 +12,8 @@ inductive Value (f: Type) [JoltField f] where
 
 def Val.toValue [JoltField f] : Val f → Value f
   | Val.Field x => Value.VField x
-  | Val.Bool b  => Value.VBool b
-  | Val.Closure _ _ => Value.None  -- shouldn't exist after normalization
+  | Val.Bool b  => Value.VField (if b then 1 else 0)
+  | _           => Value.None
 
 def semantics_zkexpr [JoltField f] (exprs: ZKExpr f) (witness: List f) : Value f :=
   let rec eval (e: ZKExpr f) : Value f :=
@@ -63,7 +63,6 @@ def semantics_zkexpr [JoltField f] (exprs: ZKExpr f) (witness: List f) : Value f
           exact (Even.add_self 8)
         Value.VField (evalComposedLookupTableArgs h table va vb)
       | _, _ => Value.None
-    | ZKExpr.Hash rhs => sorry
   eval exprs
 
 def constraints_semantics [JoltField f] (constraints: List (ZKExpr f)) (witness: List f) : Bool :=

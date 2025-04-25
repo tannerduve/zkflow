@@ -5,8 +5,13 @@ structure ZKBuilderState (f : Type) where
   -- environment: Std.HashMap Ident (ZKExpr f)
   allocated_witness_count: Nat
   constraints: List (ZKExpr f)
+  env : Std.HashMap String (ZKExpr f)
 deriving instance Inhabited for ZKBuilderState
 
+def initialZKBuilderState : ZKBuilderState f :=
+  { allocated_witness_count := 0,
+    constraints := [],
+    env := ∅ }
 
   -- TODO: environment? AST?
 
@@ -22,6 +27,11 @@ def ZKBuilder (f:Type) := StateM (ZKBuilderState f)
 instance: Monad (ZKBuilder f) where
   pure := StateT.pure
   bind := StateT.bind
+
+instance : MonadStateOf (ZKBuilderState f) (ZKBuilder f) where
+  get := StateT.get
+  set := StateT.set
+  modifyGet := StateT.modifyGet
 
 -- structure ZKBuilder (a: Type) where
 --   runBuilder: ZKBuilderState -> (a, ZKBuilderState)

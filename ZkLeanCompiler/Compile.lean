@@ -1,80 +1,125 @@
 import «ZkLeanCompiler».LCSemantics
 import «ZkLeanCompiler».Semantics
-import «ZkLeanCompiler».IRExpr
 import Std.Data.HashMap
 
+def assertIsBool {f} [Field f] (x : ZKExpr f) : ZKBuilder f Unit :=
+  constrainR1CS x (ZKExpr.Sub (ZKExpr.Literal 1) x) (ZKExpr.Literal 0)
 
-open IRExpr
+def withBinding (x : String) (v : ZKExpr f) (m : ZKBuilder f α) : ZKBuilder f α := do
+  let st ← get
+  let oldEnv := st.env
+  set { st with env := oldEnv.insert x v }
+  let result ← m
+  modify fun st' => { st' with env := oldEnv }
+  return result
 
-def toStringIR (f : Type) [Field f] [BEq f] [ToString f] : IRExpr f → String
-  | Const n     => s!"Const {n}"
-  | IRExpr.Bool b      => s!"Bool {b}"
-  | IRExpr.Add e1 e2   => s!"Add ({toStringIR f e1}) ({toStringIR f e2})"
-  | IRExpr.Mul e1 e2   => s!"Mul ({toStringIR f e1}) ({toStringIR f e2})"
-  | IRExpr.Eq e1 e2    => s!"Eq ({toStringIR f e1}) ({toStringIR f e2})"
-  | IRExpr.Sub e1 e2   => s!"Sub ({toStringIR f e1}) ({toStringIR f e2})"
-  | Hash e      => s!"Hash ({toStringIR f e})"
-  | IfZero c t e => s!"IfZero ({toStringIR f c}) ({toStringIR f t}) ({toStringIR f e})"
-
-instance [Field f] [BEq f] [ToString f] : ToString (IRExpr f) where
-  toString := toStringIR f
-
-/- Compile IR expressions into ZK -/
-def compileIR [Field f] [BEq f] [ToString f] : IRExpr f → ZKBuilder f (ZKExpr f) :=
-  λ expr =>
-  match expr with
-  | Const n                  => pure (ZKExpr.Literal n)
-  | IRExpr.Bool b            => pure (ZKExpr.Literal (if b then 1 else 0))
-  | IRExpr.Add e1 e2         => do
-    let a ← compileIR e1
-    let b ← compileIR e2
-    pure (ZKExpr.Add a b)
-  | IRExpr.Mul e1 e2         => do
-    let a ← compileIR e1
-    let b ← compileIR e2
-    pure (ZKExpr.Mul a b)
-  | IRExpr.Eq e1 e2          => do
-    let a ← compileIR e1
-    let b ← compileIR e2
-    pure (ZKExpr.Eq a b)
-  | IRExpr.Sub e1 e2         => do
-    let a ← compileIR e1
-    let b ← compileIR e2
-    pure (ZKExpr.Sub a b)
-  | IRExpr.IfZero cond t1 t2 => do
-    let c ← compileIR cond
-    let thenV ← compileIR t1
-    let elseV ← compileIR t2
-  -- Witnesses
-    let isNonZero ← Witnessable.witness
-    let inv ← Witnessable.witness
-    let out ← Witnessable.witness
-  -- cond * inv = isNonZero
-    constrainEq (ZKExpr.Mul c inv) isNonZero
-  -- cond * (1 - isNonZero) = 0
-    constrainEq (ZKExpr.Mul c (ZKExpr.Sub (ZKExpr.Literal 1) isNonZero)) (ZKExpr.Literal 0)
-  -- out = isNonZero * thenV + (1 - isNonZero) * elseV
-    constrainEq
-      (ZKExpr.Add (ZKExpr.Mul isNonZero thenV)
-                (ZKExpr.Mul (ZKExpr.Sub (ZKExpr.Literal 1) isNonZero) elseV))
-      out
-    pure out
-  | Hash e      => do
-    let a ← compileIR e
-    let out ← Witnessable.witness
-    constrainEq (ZKExpr.Hash a) out
-    pure out
-
-/-
-Lets think about the types. Terms are our lambda terms, Env is our mapping from variables to values,
-and Val is our value type. ZKBuilder f (ZKExpr f) is our monadic type for building ZK expressions.
-It is a state monad and thus has the type (ZKBuilderState f) → (ZKExpr f, ZKBuilderState f).
-A ZKBuilder State f consists of a list of constraints and a witness count.
-The witness count is the number of witnesses we have allocated so far. The constraints are the ZK
-expressions we have built so far.
--/
-def compile [Field f] [BEq f] [ToString f] : Term f → Env f → ZKBuilder f (ZKExpr f) :=
-  fun t env =>
-    let t' := normalize t env
-    let (ir, _) := (normalizeToIR t' IR.Env.empty).run 0
-    compileIR ir
+def compileExpr {f} [Field f] (t : Term f) (env : Env f) : ZKBuilder f (ZKExpr f) :=
+  match t with
+  | Term.var x =>
+      match env.lookup x with
+      | some (Val.Field n) => pure (ZKExpr.Literal n)
+      | some (Val.Bool b)  => pure (ZKExpr.Literal (if b then 1 else 0))
+      | some (Val.Unit)    => pure (ZKExpr.Literal 0)
+      | none               => pure (ZKExpr.Literal 0)
+  | Term.lit n => pure (ZKExpr.Literal n)
+  | Term.bool b => pure (ZKExpr.Literal (if b then 1 else 0))
+  | Term.add t1 t2 => do
+      let a ← compileExpr t1 env
+      let b ← compileExpr t2 env
+      let c ← Witnessable.witness
+      constrainEq (ZKExpr.Add a b) c
+      return c
+  | Term.mul t1 t2 => do
+    let a ← compileExpr t1 env
+    let b ← compileExpr t2 env
+    let z ← Witnessable.witness
+    constrainR1CS a b z
+    return z
+  | Term.sub t1 t2 => do
+      let a ← compileExpr t1 env
+      let b ← compileExpr t2 env
+      let c ← Witnessable.witness
+      constrainEq (ZKExpr.Sub a b) c
+      return c
+  | Term.eq t1 t2 => do
+    let a ← compileExpr t1 env
+    let b ← compileExpr t2 env
+    let z ← Witnessable.witness
+    constrainR1CS z (ZKExpr.Sub a b) (ZKExpr.Literal 0)
+    assertIsBool z
+    return z
+  | Term.ifz c t1 t2 => do
+      let cond ← compileExpr c env
+      let thenV ← compileExpr t1 env
+      let elseV ← compileExpr t2 env
+      -- Witnesses
+      let isNonZero ← Witnessable.witness
+      let inv ← Witnessable.witness
+      let out ← Witnessable.witness
+      -- cond * inv = isNonZero
+      constrainEq (ZKExpr.Mul cond inv) isNonZero
+      -- cond * (1 - isNonZero) = 0
+      constrainEq (ZKExpr.Mul cond (ZKExpr.Sub (ZKExpr.Literal 1) isNonZero)) (ZKExpr.Literal 0)
+      -- out = isNonZero * thenV + (1 - isNonZero) * elseV
+      constrainEq
+        (ZKExpr.Add (ZKExpr.Mul isNonZero thenV)
+                  (ZKExpr.Mul (ZKExpr.Sub (ZKExpr.Literal 1) isNonZero) elseV))
+        out
+      pure out
+  | Term.and e₁ e₂ => do
+    let x ← compileExpr e₁ env
+    let y ← compileExpr e₂ env
+  -- Ensure x and y are boolean
+    assertIsBool x
+    assertIsBool y
+  -- Allocate result witness
+    let z ← Witnessable.witness
+  -- Enforce z = x * y
+    constrainR1CS x y z
+  -- Enforce z is boolean
+    assertIsBool z
+    return z
+  | Term.or e₁ e₂ => do
+    let x ← compileExpr e₁ env
+    let y ← compileExpr e₂ env
+    assertIsBool x
+    assertIsBool y
+    let z ← Witnessable.witness
+    constrainR1CS (ZKExpr.Add x y) (ZKExpr.Sub (ZKExpr.Mul x y) z) (ZKExpr.Literal 0)
+    assertIsBool z
+    return z
+  | Term.not e => do
+    let x ← compileExpr e env
+    assertIsBool x
+    let z ← Witnessable.witness
+    constrainR1CS x (ZKExpr.Sub (ZKExpr.Literal 1) x) z
+    assertIsBool z
+    return z
+  | Term.lett x t1 t2 => do
+    let xVal ← compileExpr t1 env
+    withBinding x xVal (compileExpr t2 env)
+  | Term.inSet t ts => do
+    let x ← compileExpr t env
+    let z ← Witnessable.witness
+    constrainR1CS x (ZKExpr.Literal 1) z
+    assertIsBool z
+    return z
+  | Term.assert t => do
+    let x ← compileExpr t env
+    assertIsBool x
+    constrainEq x (ZKExpr.Literal 1)
+    return (ZKExpr.Literal 0) -- dummy value
+  | Term.seq t1 t2 => do
+    let _ ← compileExpr t1 env
+    compileExpr t2 env
+  | Term.hash1 t => do
+    let a ← compileExpr t env
+    let c ← Witnessable.witness
+    constrainR1CS a (ZKExpr.Sub (ZKExpr.Literal 1) a) c
+    return c
+  | Term.hash2 t1 t2 => do
+    let a ← compileExpr t1 env
+    let b ← compileExpr t2 env
+    let c ← Witnessable.witness
+    constrainR1CS a b c
+    return c
