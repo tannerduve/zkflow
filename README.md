@@ -1,4 +1,4 @@
-# zk-compiler: Program to Constraint Compiler in Lean
+# zk-compiler: Program to Zero-Knowledge Constraint Compiler in Lean
 
 This project implements a (verified) compiler from a simple expression language into a zero-knowledge circuit DSL
 
