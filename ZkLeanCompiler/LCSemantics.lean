@@ -2,14 +2,6 @@ import «ZkLeanCompiler».LCSyntax
 import Mathlib.Data.Nat.Basic
 open Nat
 
--- Dummy hash function
-def unaryhashFn [Field f] (x : f) : f :=
-  x ^ 3 + 42  -- dummy field hash function
--- Dummy hash function
-def binaryhashFn [Field f] (x y : f) : f :=
-  (x + 7) * (y + 3) + 42
-
-
 -- Helper for deciding equality in the big step semantics
 def eqVal {f : Type} [Field f] [BEq f] : Val f → Val f → Bool
   | Val.Field n1, Val.Field n2 => n1 == n2
@@ -72,13 +64,13 @@ inductive Eval (f : Type) [Field f] [BEq f] : Term f → Env f → Val f → Pro
 | assert : ∀ (env : Env f) (t : Term f),
     Eval f t env (Val.Bool true) →
     Eval f (Term.assert t) env (Val.Unit)
-| hash1 : ∀ (env : Env f) (t : Term f) (v : f),
-    Eval f t env (Val.Field v) →
-    Eval f (#t) env (Val.Field (unaryhashFn v))
-| hash2 : ∀ (env : Env f) (t1 t2 : Term f) (v1 v2 : f),
-    Eval f t1 env (Val.Field v1) →
-    Eval f t2 env (Val.Field v2) →
-    Eval f (t1 ## t2) env (Val.Field (binaryhashFn v1 v2))
+-- | hash1 : ∀ (env : Env f) (t : Term f) (v : f),
+--     Eval f t env (Val.Field v) →
+--     Eval f (#t) env (Val.Field (unaryhashFn v))
+-- | hash2 : ∀ (env : Env f) (t1 t2 : Term f) (v1 v2 : f),
+--     Eval f t1 env (Val.Field v1) →
+--     Eval f t2 env (Val.Field v2) →
+--     Eval f (t1 ## t2) env (Val.Field (binaryhashFn v1 v2))
 | inSet_true : ∀ (env : Env f) (t : Term f) (ts : List f) (x : f),
     Eval f t env (Val.Field x) →
     x ∈ ts →

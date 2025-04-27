@@ -9,7 +9,7 @@ instance : OfNat (Ident) n where
   ofNat := n
 
 def WitnessId := Nat
-deriving instance BEq, Ord, LT, Hashable for WitnessId
+deriving instance BEq, Ord, LT, Hashable, ToString for WitnessId
 
 -- TODO: Is this needed?
 instance : OfNat (WitnessId) n where

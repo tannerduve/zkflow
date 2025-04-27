@@ -22,8 +22,8 @@ inductive Term (f : Type u) [Field f] where
 | not : Term f → Term f
 | lett : String → Term f → Term f → Term f
 | ifz : Term f → Term f → Term f → Term f
-| hash1 : Term f → Term f
-| hash2 : Term f → Term f → Term f
+-- | hash1 : Term f → Term f
+-- | hash2 : Term f → Term f → Term f
 | inSet : Term f → List f → Term f
 -- statements/commands
 | assert : Term f → Term f
@@ -47,8 +47,8 @@ def freeVars {f} [Field f] (t : Term f) : Finset String := match t with
   | Term.ifz c t₁ t₂  => freeVars c ∪ freeVars t₁ ∪ freeVars t₂
   | Term.lett x t₁ t₂ => freeVars t₁ ∪ (freeVars t₂ \ {x})
   | Term.assert t      => freeVars t
-  | Term.hash1 t        => freeVars t
-  | Term.hash2 t₁ t₂   => freeVars t₁ ∪ freeVars t₂
+  -- | Term.hash1 t        => freeVars t
+  -- | Term.hash2 t₁ t₂   => freeVars t₁ ∪ freeVars t₂
   | Term.inSet t _    => freeVars t
   | Term.seq t₁ t₂     => freeVars t₁ ∪ freeVars t₂
 
@@ -73,8 +73,7 @@ def Env.insert {f : Type} [Field f] (x : String) (v : Val f) (ρ : Env f) : Env 
 def wellScoped {f} [Field f] (t : Term f) (env : Env f) : Prop :=
   ∀ x ∈ freeVars t, ∃ v, env.lookup x = some v ∧ v ≠ Val.Unit
 
-
-notation "<{" e:99 "}>" => e
+notation "<{" e:100 "}>" => e
 infixl:99 " ⊕ " => Term.add
 infixl:99 " ⊗ " => Term.mul
 infixl:99 " - " => Term.sub
@@ -85,5 +84,5 @@ prefix:100 "∼" => Term.not
 notation "ifz" t₁ " then " t₂ " else " t₃ => Term.ifz t₁ t₂ t₃
 infixl:99 " ; " => Term.seq
 infixl:99 " inn " => Term.inSet
-prefix:100 "#" => Term.hash1
-infixl:99 " ## " => Term.hash2
+prefix:100 "ASSERT " => Term.assert
+notation "let " x " := " t " in " b => Term.lett x t b

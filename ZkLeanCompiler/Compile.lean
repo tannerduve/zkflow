@@ -85,20 +85,20 @@ def compileExpr {f} [Field f] (t : Term f) (env : Env f) : ZKBuilder f (ZKExpr f
     assertIsBool x
     assertIsBool y
     let z ← Witnessable.witness
-    constrainR1CS (ZKExpr.Add x y) (ZKExpr.Sub (ZKExpr.Mul x y) z) (ZKExpr.Literal 0)
+    constrainEq (ZKExpr.Sub (ZKExpr.Add x y) (ZKExpr.Mul x y)) z
     assertIsBool z
     return z
   | Term.not e => do
     let x ← compileExpr e env
     assertIsBool x
     let z ← Witnessable.witness
-    constrainR1CS x (ZKExpr.Sub (ZKExpr.Literal 1) x) z
+    constrainEq (ZKExpr.Neg x) z
     assertIsBool z
     return z
   | Term.lett x t1 t2 => do
     let xVal ← compileExpr t1 env
     withBinding x xVal (compileExpr t2 env)
-  | Term.inSet t ts => do
+  | Term.inSet t _ => do
     let x ← compileExpr t env
     let z ← Witnessable.witness
     constrainR1CS x (ZKExpr.Literal 1) z
@@ -112,14 +112,17 @@ def compileExpr {f} [Field f] (t : Term f) (env : Env f) : ZKBuilder f (ZKExpr f
   | Term.seq t1 t2 => do
     let _ ← compileExpr t1 env
     compileExpr t2 env
-  | Term.hash1 t => do
-    let a ← compileExpr t env
-    let c ← Witnessable.witness
-    constrainR1CS a (ZKExpr.Sub (ZKExpr.Literal 1) a) c
-    return c
-  | Term.hash2 t1 t2 => do
-    let a ← compileExpr t1 env
-    let b ← compileExpr t2 env
-    let c ← Witnessable.witness
-    constrainR1CS a b c
-    return c
+
+
+
+-- | Term.hash1 t => do
+--   let a ← compileExpr t env
+  --   let c ← Witnessable.witness
+  --   constrainR1CS a (ZKExpr.Sub (ZKExpr.Literal 1) a) c
+  --   return c
+  -- | Term.hash2 t1 t2 => do
+  --   let a ← compileExpr t1 env
+  --   let b ← compileExpr t2 env
+  --   let c ← Witnessable.witness
+  --   constrainR1CS a b c
+  --   return c

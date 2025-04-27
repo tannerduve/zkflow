@@ -13,15 +13,13 @@ def initialZKBuilderState : ZKBuilderState f :=
     constraints := [],
     env := ∅ }
 
-  -- TODO: environment? AST?
-
 -- ZKRepr ??
 -- ZKRepr Jolt u32 = F128p
 
 -- TODO: Make this a free monad?
 def ZKBuilder (f:Type) := StateM (ZKBuilderState f)
 
--- given a type α we'd get (ZkBuilder f) α : (ZkBuilderState f) -> (α, ZkBuilderState f)
+-- given a type α we'd get (ZkBuilder f) α = (ZkBuilderState f) -> (α, ZkBuilderState f)
 -- explanation: one can read the current state and return a value and the new state
 
 instance: Monad (ZKBuilder f) where
@@ -78,7 +76,6 @@ instance [Witnessable f a]: Witnessable f (Vector a n) where
         pure (Vector.push v w)
     do
       helper n
-
 
 def constrain (constraint: ZKExpr f) : ZKBuilder f PUnit := do
   let old_state <- StateT.get

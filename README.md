@@ -1,53 +1,117 @@
-# zk-compiler: Program to Zero-Knowledge Constraint Compiler in Lean
+# zkFlow
 
-This project implements a (verified) compiler from a simple expression language into a zero-knowledge circuit DSL
+**zkFlow** is a small language for writing simple programs that automatically compile into zero-knowledge proof circuits.  
+It enables users to express basic arithmetic, boolean logic, and control-flow computations over a finite field, and automatically generate the corresponding arithmetized circuits needed for proof systems such as zk-SNARKs or zk-STARKs.  
+The target language is the zkLean DSL ([link](https://github.com/GaloisInc/zk-lean)) developed by Galois for specifying ZK statements.
 
-## Overview
+The compiler is written and (partially — in progress) formally verified in Lean.
 
-- **Source Language**: An untyped expression language with field literals, boolean logic, arithmetic, equality, conditionals, hashing, and assert commands.
-- **Target Language**: A constraint DSL (`ZKExpr f`) representing R1CS-style arithmetic circuits.
-- **Compilation Strategy**: Structured as a staged pipeline, producing constraints and witness assignments via a `ZKBuilder` monad.
+---
 
-## Code Structure
+## Project Goals
 
-The project consists of both original components and vendored components from the [Zk-Lean](https://github.com/GaloisInc/zk-lean) project by Galois.
+- **Write small programs** using high-level constructs (arithmetic, booleans, if-then-else, etc.).
+- **Compile automatically** into low-level constraint systems suitable for ZK proof backends.
+- **Formally prove** that the compiler preserves semantics: the meaning of a program matches the meaning of the generated constraint system.
 
-**Original code (this project):**
-- `LCSyntax.lean`: Source language syntax
-- `LCSemantics.lean`: Big-step semantics for source terms
-- `Compile.lean`: End-to-end pipeline from high level expressions to ZK constraints
+---
 
-**Vendored from [Zk-Lean](https://github.com/GaloisInc/zk-lean):**
-- `AST.lean`: Defines the `ZKExpr` DSL for ZK constraint terms
-- `Builder.lean`: A monadic API for witness allocation and constraint accumulation
-- `Semantics.lean`: Interpreter for evaluating `ZKExpr` against a witness list
-- Note: These files were copied directly from Zk-Lean and not modified substantially. Long-term, switching to Zk-Lean as a proper dependency is recommended.
+## Language Overview
 
-## Compilation Pipeline
+The source language (called `Term`) includes:
 
+- Field arithmetic: addition, multiplication, subtraction
+- Boolean logic: and, or, not
+- Equality checking
+- Conditionals (`ifz` — if-then-else)
+- Set membership tests (`inSet`)
+- Let-bindings (`let x = t1 in t2`)
+- Assertions (`assert t`)
+- Sequencing of programs (`t1 ; t2`)
 
-## Hashing Support
+There are no functions or recursion — the language is deliberately small, static, and designed for easy compilation into circuit constraints.
 
-- Hashing is currently treated as a primitive.
-- A dummy hash function (e.g., `x ↦ x^3 + 42`) is used for simulation and testing.
-- In the future, this will be replaced with real cryptographic hash gadgets such as Poseidon, integrated via backend constraint systems.
+---
 
-## Formal Verification Goals
+## How Compilation Works
 
-The goal is to formally verify the compiler in Lean by proving:
+Each source program is compiled into:
 
-> If a `Term f` evaluates to a value `v`, then the compiled circuit will evaluate to `v` on a valid witness.
+- A **constraint system**: a list of polynomial equalities over the field.
+- A **compiled expression** (`ZKExpr`) representing the program’s output.
+- A **witness**: an assignment of field elements satisfying the constraints.
 
+The compiler internally allocates **witness variables** as needed, enforces constraints through simple rewriting, and preserves the structure of computation.
 
-## Dependencies
+The resulting constraint system can be passed directly into a ZK backend to generate proofs.
 
-- [mathlib4](https://github.com/leanprover-community/mathlib4)
+---
 
-## Currently:
-Writing proof of correctness (semantic preservation) of compilation
+## File Overview
 
-## Future Plans
+### Files Original to This Project:
 
-- Backend integration (e.g., export constraints to R1CS or Halo2-compatible formats)
-- Real cryptographic hash support
-- Witness and constraint serialization for external proving systems
+- **`LCSyntax.lean`**  
+  Defines the syntax of the source language (`Term`), the structure of environments, free variable computation, and the definition of values.
+
+- **`LCSemantics.lean`**  
+  Defines the big-step operational semantics (`Eval`) for executing programs in the source language.
+
+- **`Compile.lean`**  
+  Defines the main compiler (`compileExpr`) which translates `Term` programs into constraint systems (`ZKExpr` expressions and lists of constraints).
+
+- **`Correctness.lean`**  
+  Contains supporting lemmas and the main theorem (`compileExpr_correct`) showing that the compiler preserves the semantics of the source programs.
+
+- **`Demo.lean`**  
+  Provides a pretty-printer for `Term` and `ZKExpr`, and a demo runner that compiles a program and checks whether a provided witness satisfies the generated constraints.
+
+---
+
+### Files Imported from zkLean:
+
+- **`AST.lean`**  
+  Defines the `ZKExpr` datatype: a low-level language of field expressions used to represent circuits. Includes literals, arithmetic operations, equality checks, and lookup gadgets.
+
+- **`Basic.lean`**  
+  Provides basic operations over fields and field elements, including coercions, equality, and small helper structures.
+
+- **`Builder.lean`**  
+  Defines the `ZKBuilder` monad and state — a constraint generation monad that tracks allocated witnesses and emitted constraints during compilation.
+
+- **`LookupTable.lean`**  
+  Defines structures for composed lookup tables, subtables, and their evaluation semantics. Supports complex lookup operations needed for efficient circuit design.
+
+- **`Semantics.lean`**  
+  Defines the evaluation semantics (`semantics_zkexpr`) of `ZKExpr` expressions under a witness assignment, and the satisfaction semantics (`constraints_semantics`) for lists of constraints.
+
+---
+
+## Formal Verification
+
+The key correctness theorem (`compileExpr_correct`) states:
+
+> If a program `t` evaluates to value `v` under the source semantics,  
+> then its compiled constraint system has a satisfying witness,  
+> and the compiled expression evaluates to the same value `v` under that witness.
+
+Along the way, several technical lemmas about constraint semantics, witness structure, and boolean handling have been proven.  
+These include properties like:
+
+- Distribution of constraint satisfaction over lists
+- Soundness of boolean assertions
+- Correctness of basic arithmetic and logical compilation
+- Witness consistency during compilation steps
+
+**Progress**:  
+The proof is complete for basic cases (variables, literals, booleans) and partial for arithmetic and logical operations.  
+A few hundred lines of proof are complete. The remaining control-flow cases (`ifz`, `inSet`, sequencing) are straightforward extensions.
+
+---
+
+## Future Work
+
+- Add hashing as a language primitive for supporting more advanced cryptographic protocols.
+- Add tuple types, map types, or Merkle tree operations for more expressive ZK computations.
+- Extend to simple bounded loops for larger programs.
+- Connect the output constraint system to real ZK proof backends (e.g., Halo2, Nova) for actual proof generation.

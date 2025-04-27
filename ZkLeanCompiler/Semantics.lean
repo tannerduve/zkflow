@@ -3,7 +3,7 @@ import «ZkLeanCompiler».AST
 import «ZkLeanCompiler».Builder
 import «ZkLeanCompiler».LCSyntax
 
-class JoltField (f : Type) extends Field f, BEq f, ToString f, Inhabited f, Witnessable f (ZKExpr f), Hashable f
+class JoltField (f : Type) extends Field f, BEq f, LawfulBEq f, ToString f, Inhabited f, Witnessable f (ZKExpr f), Hashable f
 
 inductive Value (f: Type) [JoltField f] where
   | VBool : Bool -> Value f
