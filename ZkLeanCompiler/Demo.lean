@@ -30,6 +30,8 @@ instance : HAnd (Term ℚ) (Term ℚ) (Term ℚ) where
 instance : HOr (Term ℚ) (Term ℚ) (Term ℚ) where
   hOr := Term.or
 
+instance : HNot (Term ℚ) where
+  hnot := Term.not
 
 /-- Pretty printer for Term -/
 partial def Term.repr {f} [Field f] [ToString f] : Term f → String
@@ -95,13 +97,6 @@ def demo {f} [ToString f] [JoltField f]
   let ok := constraints_semantics st.constraints witness
   IO.println s!"\nConstraints satisfied by witness? {ok}"
 
-
-macro x:term:70 " ⊗ " y:term:71 : term => `(Term.mul $x $y)
-macro x:term:65 " ⊕ " y:term:66 : term => `(Term.add $x $y)
-macro x:term:60 " =-= " y:term:61 : term => `(Term.eq $x $y)
-
-
-
 -- Now NO `{F}` arguments in the demos!
 
 instance hash : Hashable ℚ where
@@ -138,50 +133,76 @@ instance : JoltField ℚ where
     simp only [BEq.beq, decide_eq_true_eq]
   }
 
-declare_syntax_cat zkflow
-
-syntax term : zkflow
-syntax "ASSERT" zkflow : zkflow
-syntax "ifz" term "then" zkflow "else" zkflow : zkflow
-syntax zkflow ";" zkflow : zkflow
-syntax (name := zkseq) term ";" term : zkflow
-syntax "<{" term "}>" : term
-
-
--- Example
 def arithmeticCheck : Term ℚ :=
-  ASSERT (3 * (2 + 1) == 9)
+  Term.assert (
+    Term.eq
+      (Term.mul
+        (Term.lit 3)
+        (Term.add (Term.lit 2) (Term.lit 1)))
+      (Term.lit 9)
+  )
 
 def booleanOrCheck : Term ℚ :=
-  ASSERT (true ||| false)
+  Term.assert (
+    Term.or
+      (Term.bool true)
+      (Term.bool false)
+  )
 
 def ifzCheck : Term ℚ :=
-  ASSERT (2 + 3) =-= 5;
-  ASSERT (2 * 4 == 8)
+  Term.seq
+    (Term.assert (
+      Term.eq
+        (Term.ifz (Term.bool false) (Term.lit 1) (Term.lit 2))
+        (Term.lit 2)
+    ))
+    (Term.assert (
+      Term.eq
+        (Term.mul (Term.lit 2) (Term.lit 4))
+        (Term.lit 8)
+    ))
 
 def booleanAndCheck : Term ℚ :=
-  ASSERT (true &&& false)
+  Term.assert (
+    Term.and
+      (Term.bool true)
+      (Term.bool true)
+  )
 
 def seqArithmetic : Term ℚ :=
-  (ASSERT ((2 + 3 : Term ℚ) == 5);
-   ASSERT (2 ⊗ 4 =-= 8))
-
+  Term.seq
+    (Term.assert (
+      Term.eq
+        (Term.add (Term.lit 2) (Term.lit 3))
+        (Term.lit 5)
+    ))
+    (Term.assert (
+      Term.eq
+        (Term.mul (Term.lit 2) (Term.lit 4))
+        (Term.lit 8)
+    ))
 
 def seqIfzArithmetic : Term ℚ :=
-  (ASSERT (ifz false then 1 else 2 == 2) ;
-   ASSERT (4 + 5) =-= 9)
-
-
+  Term.seq
+    (Term.assert (
+      Term.eq
+        (Term.ifz (Term.bool false) (Term.lit 1) (Term.lit 2))
+        (Term.lit 2)
+    ))
+    (Term.assert (
+      Term.eq
+        (Term.add (Term.lit 4) (Term.lit 5))
+        (Term.lit 9)
+    ))
 
 def arithmeticWitness : List ℚ := [3, 9, 1] -- 3 = 2+1, 9 = 3*3, 1 = (9==9)
 def booleanAndWitness : List ℚ := [1, 1, 1]
 def booleanOrWitness : List ℚ := [1, 0, 1]
-def ifzWitness : List ℚ := [1, 1, 5, 1]    -- 5 if true, else 10
+def ifzWitness : List ℚ := [0, 0, 2, 1, 8, 1]
 
 #eval! demo arithmeticCheck arithmeticWitness
 #eval! demo booleanAndCheck booleanAndWitness
 #eval! demo ifzCheck ifzWitness
 #eval! demo booleanOrCheck booleanOrWitness
 #eval! demo seqArithmetic [5, 1, 8, 1]
--- #eval! demo seqLetArithmetic [8, 1, 14, 1]
-#eval! demo seqIfzArithmetic [0, 0, 1, 9, 1]
+#eval! demo seqIfzArithmetic [0, 0, 2, 1, 9, 1]
