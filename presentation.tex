@@ -1,0 +1,323 @@
+\PassOptionsToPackage{svgnames,dvipsnames}{xcolor}
+\documentclass[aspectratio=169]{beamer}
+\usepackage{microtype}
+
+\usetheme{moloch}
+\setbeamertemplate{page number in head/foot}[appendixframenumber]
+\setbeamertemplate{frame footer}{%
+    \insertsectionnumber{}. \insertsectionhead{}%
+    \ifx\insertsubsectionhead\empty\relax\else$\ \vartriangleright{}\ $\insertsubsectionhead\fi
+}
+\setbeamercolor{block title example}{bg=example text.fg!40}
+\setbeamercolor{block body example}{bg=example text.fg!10}
+
+\usepackage{proof}
+\usepackage{listings}
+\usepackage{xcolor}
+\definecolor{keywordcolor}{rgb}{0.7, 0.1, 0.1}
+\definecolor{sortcolor}{rgb}{0.1, 0.5, 0.1}
+\definecolor{tacticcolor}{rgb}{0.0, 0.1, 0.6}
+\definecolor{attributecolor}{rgb}{0.7, 0.1, 0.1}
+\definecolor{commentcolor}{rgb}{0.4, 0.4, 0.4}
+\definecolor{symbolcolor}{rgb}{0.0, 0.1, 0.6}
+\def\lstlanguagefiles{lstlean.tex}
+\lstset{
+  language=lean
+}
+
+\usepackage{biblatex}
+\addbibresource{main.bib}
+\usepackage{fontspec}
+\usepackage{graphicx}
+
+\title{zkFlow: Verified Compilation of Programs to Zero-Knowledge Constraints}
+\subtitle{Written and Verified in Lean}
+\author{Tanner Duve}
+
+\newcommand\todo[1]{\textcolor{red}{#1}}
+
+\begin{document}
+\maketitle
+
+\begin{frame}{Motivation: A High-Level Language for ZK}
+\begin{itemize}
+    \item Problem: Computations for zero-knowledge proofs must be encoded by hand as polynomial constraints over some field.
+    \item Goal: Write normal high-level programs, automatically get correct ZK constraints.
+    \item Challenge: Prove the compiler is sound, i.e., \textit{preserves semantics}.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Idea - Compile from simple expression language to ZK circuit language}
+\begin{itemize}
+    \item Define a small programming language: arithmetic, booleans, control flow, assertions.
+    \item Compile programs into circuits (using the zkLean DSL as target language).
+    \item Prove in Lean that the compiled circuit faithfully represents the source program.
+\end{itemize}
+\end{frame}
+
+\section{Source Language: ZkFlow}
+
+\begin{frame}[fragile]{Language Design - Syntax}
+\begin{columns}
+\column{0.5\textwidth}
+Source language terms consist of
+\begin{itemize}
+    \item Variables, Literals over a field $F$, and Booleans
+    \item Arithmetic: $+, *, -$
+    \item Logic: $\&\&, \mid\mid, !, \text{inSet}$
+    \item Control Flow: if, let, seq, assert
+\end{itemize}
+An example program:
+\begin{lstlisting}[language=lean]
+<{let role := 1 in
+        assert (role inn {1, 2, 3}) ;
+        assert !(role == 2)}>
+\end{lstlisting}
+
+\column{0.5\textwidth}
+\vspace{-0.5 em}
+\includegraphics[width=\textwidth]{term.png}
+\end{columns}
+\end{frame}
+
+\begin{frame}[fragile]{Before Semantics - Environments}
+\begin{center}
+To evaluate programs, first assign values to variables.
+
+\vspace{1em}
+\includegraphics[width=0.6\textwidth]{mutual.png}
+\end{center}
+\end{frame}
+
+\begin{frame}[fragile]{Before Semantics - Environments}
+A term $t$ is \textit{well-scoped} in an environment env when every free variable in $t$ is mapped to either a bool or a field element:
+\begin{lstlisting}
+def wellScoped {f} [Field f] (t : Term f) (env : Env f) : Prop :=
+  ∀ x ∈ freeVars t, ∃ v, env.lookup x = some v ∧ v ≠ Val.Unit
+\end{lstlisting}
+Where
+\begin{lstlisting}
+def freeVars {f} [Field f] (t : Term f) : Finset String
+\end{lstlisting}
+is defined by simple recursion on $t$.
+\end{frame}
+
+\begin{frame}[fragile]{Language Design - Semantics}
+\centering
+We define a \textit{big step operational semantics} using an inductive relation:
+
+\vspace{1em}
+
+\begin{block}{}
+\begin{lstlisting}
+      Eval (f : Type) [Field f] [BEq f] : Term f → Env f → Val f → Prop
+\end{lstlisting}
+\end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Semantics cont'd - some rules}
+\begin{columns}
+
+\column{0.5\textwidth}
+\textbf{When $t$ is a variable:}
+
+\[
+\infer[\texttt{var}]
+  { (t, \text{env}) \longrightarrow v }
+  { \text{env.lookup}(x) = \text{some}(v) \quad t = \text{var}(x) }
+\]
+
+\vspace{1em}
+
+\textbf{When $t$ checks membership:}
+
+\[
+\infer[\texttt{inSet\_true}]
+  { (t\ \texttt{inn}\ ts, \text{env}) \longrightarrow \text{Bool(true)} }
+  {
+    (t, \text{env}) \longrightarrow \text{Field}(x)
+    \quad
+    x \in ts
+  }
+\]
+
+\column{0.5\textwidth}
+\textbf{When $t$ is $t_1 + t_2$:}
+
+\[
+\infer[\texttt{add}]
+  { (t_1 + t_2, \text{env}) \longrightarrow \text{Field}(n_1 + n_2) }
+  {
+    (t_1, \text{env}) \longrightarrow \text{Field}(n_1)
+    \quad
+    (t_2, \text{env}) \longrightarrow \text{Field}(n_2)
+  }
+\]
+
+\vspace{1em}
+
+\textbf{When $t$ is sequencing:}
+
+\[
+\infer[\texttt{seq}]
+  { (t_1;\ t_2, \text{env}) \longrightarrow v }
+  {
+    (t_1, \text{env}) \longrightarrow \text{Unit}
+    \quad
+    (t_2, \text{env}) \longrightarrow v
+  }
+\]
+
+\end{columns}
+\end{frame}
+
+\section{Target Language: zkLean}
+\begin{frame}{zkLean: Target Language for ZK Compilation}
+\begin{itemize}
+    \item zkLean is a small expression language for building zero-knowledge circuits.
+    \item Core datatype: \texttt{ZKExpr f}, representing field computations.
+    \item Expressions include:
+    \begin{itemize}
+        \item Literals
+        \item Witness variables
+        \item Arithmetic: $+, -, *, \text{neg}$
+        \item Equality constraints
+        \item Lookup operations (for Jolt-style lookup arguments)
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{ZKExpr Evaluation as Circuits}
+\begin{itemize}
+    \item Each \texttt{ZKExpr} is interpreted as a circuit constraint.
+    \item Expressions over literals and witness variables build polynomials:
+    \begin{itemize}
+        \item \texttt{Add}, \texttt{Mul}, \texttt{Sub}, \texttt{Neg} → algebraic constraints
+        \item \texttt{Eq} → enforces equality between expressions
+    \end{itemize}
+    \item Witnesses provide variable assignments satisfying all constraints.
+    \item Lookup tables provide efficient range checks and indirect computations.
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Witness Semantics and Constraint Checking}
+\begin{itemize}
+    \item Witness values assigned by the prover at proving time.
+    \item Evaluation:
+    \begin{lstlisting}
+def semantics_zkexpr [Field f] (exprs: ZKExpr f) (witness: List f) : Value f
+    \end{lstlisting}\item Constraints are enforced by evaluating expressions and checking they hold:
+    \begin{lstlisting}
+def constraints_semantics [Field f] (constraints: List (ZKExpr f)) (witness: List f) : Bool
+    \end{lstlisting}
+    \item State monad \texttt{ZKBuilder}:
+    \begin{itemize}
+        \item Allocates witnesses
+        \item Keeps track of constraints
+    \end{itemize}
+\end{itemize}
+\end{frame}
+
+%%% === END ZKLEAN SLIDES === %%%
+\section{The Compiler}
+
+\begin{frame}{The Compiler: From Programs to Circuits}
+\begin{itemize}
+    \item Compiling from source terms (\texttt{Term f}) into ZK constraints (\texttt{ZKExpr f}).
+    \item Monadic structure (\texttt{ZKBuilder}):
+    \begin{itemize}
+        \item Allocate new witnesses
+        \item Enforce constraints
+    \end{itemize}
+    \item Goal: Preserve program semantics through circuit satisfiability.
+\end{itemize}
+\end{frame}
+\begin{frame}[fragile]{How Compilation Works}
+The compilation function \texttt{compileExpr} is defined recursively as follows:
+\begin{lstlisting}
+def compileExpr (t : Term f) (env : Env f) : ZKBuilder f (ZKExpr f) :=
+  match t with
+  | Term.var x => ...
+  | Term.lit n => ...
+  | Term.add t₁ t₂ => ...
+  | Term.mul t₁ t₂ => ...
+  | Term.ifz c t₁ t₂ => ...
+  | ...
+\end{lstlisting}
+\end{frame}
+    
+\begin{frame}[fragile]{Example Case: Boolean Conjunction $\&\&$}
+\vspace{-1em}
+\centering
+The ``and" case of the recursion is as follows:
+
+\vspace{1em}
+\includegraphics[height=0.75\textheight][width=0.75\textwidth]{and.png}
+
+\vspace{-1em}
+\end{frame}
+
+\begin{frame}[fragile]{Example Case: If-Then-Else}
+  \vspace{-1em}
+  \centering
+  The ``if-then-else'' case of the recursion is as follows:
+  
+  \vspace{1em}
+  \includegraphics[height=0.5\textheight][width=0.35\textwidth]{ite.png}
+  
+  \vspace{-1em}
+  \end{frame}
+
+\begin{frame}[fragile]{Example Case: Set Membership}
+  \vspace{-1em}
+  \centering
+    The ``inSet" case of the recursion is as follows:
+    
+    \vspace{1em}
+    \includegraphics[height=0.75\textheight][width=0.75\textwidth]{and.png}
+    
+    \vspace{-1em}
+    \end{frame}
+  
+    \begin{frame}[fragile]{Constraints and Witnesses}
+    \vspace{-1em}
+    \centering
+        \begin{itemize}
+          \item Compilation is done in the ZkBuilder monad
+          \begin{itemize}
+            \item State monad keeping track of constraints + witnesses
+          \end{itemize}
+          \item In compiling, use \texttt{Witnessable.witness} to allocate a new witness 
+          \item Constraints are added using \texttt{constrainEq}, \texttt{constrainR1CS}
+          \item Compiler is \textbf{total}, all source terms are compiled into circuits.
+        \end{itemize}
+    \end{frame}
+    \section{Verification and Correctess}
+    \begin{frame}[fragile]{Verification: What Is Our Correctness Claim?}
+    \vspace{-1em}
+    Recall: Our compiler should \textit{preserve semantics} of zkFlow programs 
+    Claim:
+    \centering 
+    If a term $t$ is well-scoped in an environment $env$, and evaluates to a value $v$
+    under the source semantics, then compiling $t$ produces a circuit expression and a
+    set of constraints such that:
+    \begin{itemize}
+      \item The constraints are satisfied by some witness assignment
+      \item The compiled circuit expression evaluates to the same value `v` under that witness.
+    \end{itemize}
+    In Lean:
+    \begin{lstlisting}
+      theorem compileExpr_correct :
+  $\forall$ (t : Term F) (env : Env F) (v : Val F),
+    wellScoped t env $\to$
+    Eval F t env v $\to$
+    $\exists$ (witness : List F),
+      let (compiledExpr, st) := (compileExpr t env).run initialZKBuilderState
+      constraints_semantics st.constraints witness = true $\land$
+      semantics_zkexpr compiledExpr witness = Val.toValue v :=
+    \end{lstlisting}
+    
+    \end{frame}
+
+
+\end{document}

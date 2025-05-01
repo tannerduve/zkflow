@@ -24,7 +24,7 @@ inductive Eval (f : Type) [Field f] [BEq f] : Term f → Env f → Val f → Pro
 | add : ∀ (env : Env f) (t1 t2 : Term f) (n1 n2 : f),
     Eval f t1 env (Val.Field n1) →
     Eval f t2 env (Val.Field n2) →
-    Eval f (t1 ⊕ t2) env (Val.Field (n1 + n2))
+    Eval f (t1 + t2) env (Val.Field (n1 + n2))
 | sub : ∀ (env : Env f) (t1 t2 : Term f) (n1 n2 : f),
     Eval f t1 env (Val.Field n1) →
     Eval f t2 env (Val.Field n2) →
@@ -32,11 +32,11 @@ inductive Eval (f : Type) [Field f] [BEq f] : Term f → Env f → Val f → Pro
 | mul : ∀ (env : Env f) (t1 t2 : Term f) (n1 n2 : f),
     Eval f t1 env (Val.Field n1) →
     Eval f t2 env (Val.Field n2) →
-    Eval f (t1 ⊗ t2) env (Val.Field (n1 * n2))
+    Eval f (t1 * t2) env (Val.Field (n1 * n2))
 | eq : ∀ (env : Env f) (t1 t2 : Term f) (v1 v2 : Val f),
     Eval f t1 env v1 →
     Eval f t2 env v2 →
-    Eval f (t1 =-= t2) env (Val.Bool (eqVal v1 v2))
+    Eval f (t1 == t2) env (Val.Bool (eqVal v1 v2))
 | and : ∀ (env : Env f) (t1 t2 : Term f) (b1 b2 : Bool),
     Eval f t1 env (Val.Bool b1) →
     Eval f t2 env (Val.Bool b2) →
@@ -47,7 +47,7 @@ inductive Eval (f : Type) [Field f] [BEq f] : Term f → Env f → Val f → Pro
     Eval f (t1 || t2) env (Val.Bool (b1 || b2))
 | not : ∀ (env : Env f) (t : Term f) (b : Bool),
     Eval f t env (Val.Bool b) →
-    Eval f (∼t) env (Val.Bool (!b))
+    Eval f (!t) env (Val.Bool (!b))
 | lett : ∀ (env env' : Env f) (x : String) (t₁ t₂ : Term f) (v : Val f) (v' : Val f),
     Eval f t₁ env v →
     env' = Env.insert x v env →
@@ -56,21 +56,14 @@ inductive Eval (f : Type) [Field f] [BEq f] : Term f → Env f → Val f → Pro
 | ifz_true : ∀ (env : Env f) (t₁ t₂ t₃ : Term f) (v : Val f),
     Eval f t₁ env (Val.Bool true) →
     Eval f t₂ env v →
-    Eval f (ifz t₁ then t₂ else t₃) env v
+    Eval f (<{if t₁ then t₂ else t₃}>) env v
 | ifz_false : ∀ (env : Env f) (t₁ t₂ t₃ : Term f) (v : Val f),
     Eval f t₁ env (Val.Bool false) →
     Eval f t₃ env v →
-    Eval f (ifz t₁ then t₂ else t₃) env v
+    Eval f (if t₁ then t₂ else t₃) env v
 | assert : ∀ (env : Env f) (t : Term f),
     Eval f t env (Val.Bool true) →
     Eval f (Term.assert t) env (Val.Unit)
--- | hash1 : ∀ (env : Env f) (t : Term f) (v : f),
---     Eval f t env (Val.Field v) →
---     Eval f (#t) env (Val.Field (unaryhashFn v))
--- | hash2 : ∀ (env : Env f) (t1 t2 : Term f) (v1 v2 : f),
---     Eval f t1 env (Val.Field v1) →
---     Eval f t2 env (Val.Field v2) →
---     Eval f (t1 ## t2) env (Val.Field (binaryhashFn v1 v2))
 | inSet_true : ∀ (env : Env f) (t : Term f) (ts : List f) (x : f),
     Eval f t env (Val.Field x) →
     x ∈ ts →

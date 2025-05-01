@@ -7,15 +7,12 @@ The target language is the zkLean DSL ([link](https://github.com/GaloisInc/zk-le
 The compiler is written and (partially — in progress) formally verified in Lean.
 
 ---
-
 ## Project Goals
 
 - **Write small programs** using high-level constructs (arithmetic, booleans, if-then-else, etc.).
 - **Compile automatically** into low-level constraint systems suitable for ZK proof backends.
 - **Formally prove** that the compiler preserves semantics: the meaning of a program matches the meaning of the generated constraint system.
-
 ---
-
 ## Language Overview
 
 The source language (called `Term`) includes:

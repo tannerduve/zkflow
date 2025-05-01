@@ -13,18 +13,19 @@ inductive Term (f : Type u) [Field f] where
 | var : String → Term f
 | lit : f → Term f
 | bool : Bool → Term f
+-- arithmetic
 | add : Term f → Term f → Term f
 | mul : Term f → Term f → Term f
 | sub : Term f → Term f → Term f
+-- logic
 | eq  : Term f → Term f → Term f
 | and : Term f → Term f → Term f
 | or  : Term f → Term f → Term f
 | not : Term f → Term f
+| inSet : Term f → List f → Term f
+-- control flow
 | lett : String → Term f → Term f → Term f
 | ifz : Term f → Term f → Term f → Term f
--- | hash1 : Term f → Term f
--- | hash2 : Term f → Term f → Term f
-| inSet : Term f → List f → Term f
 -- statements/commands
 | assert : Term f → Term f
 | seq : Term f → Term f → Term f
@@ -47,17 +48,10 @@ def freeVars {f} [Field f] (t : Term f) : Finset String := match t with
   | Term.ifz c t₁ t₂  => freeVars c ∪ freeVars t₁ ∪ freeVars t₂
   | Term.lett x t₁ t₂ => freeVars t₁ ∪ (freeVars t₂ \ {x})
   | Term.assert t      => freeVars t
-  -- | Term.hash1 t        => freeVars t
-  -- | Term.hash2 t₁ t₂   => freeVars t₁ ∪ freeVars t₂
   | Term.inSet t _    => freeVars t
   | Term.seq t₁ t₂     => freeVars t₁ ∪ freeVars t₂
 
 mutual
-/--
-The values of our expression language.
-The values are either field elements, booleans, or unit.
-Unit is used to represent the absence of a value, for example assert should execute without returning a value.
--/
 inductive Val (f : Type) [Field f] where
 | Field   : f → Val f
 | Bool    : Bool → Val f
@@ -74,15 +68,15 @@ def wellScoped {f} [Field f] (t : Term f) (env : Env f) : Prop :=
   ∀ x ∈ freeVars t, ∃ v, env.lookup x = some v ∧ v ≠ Val.Unit
 
 notation "<{" e:100 "}>" => e
-infixl:99 " ⊕ " => Term.add
-infixl:99 " ⊗ " => Term.mul
+infixl:99 " + " => Term.add
+infixl:99 " * " => Term.mul
 infixl:99 " - " => Term.sub
-infixl:99 " =-= " => Term.eq
+infixl:99 " == " => Term.eq
 infixl:99 " && " => Term.and
 infixl:99 " || " => Term.or
-prefix:100 "∼" => Term.not
-notation "ifz" t₁ " then " t₂ " else " t₃ => Term.ifz t₁ t₂ t₃
+prefix:100 "!" => Term.not
+notation "if" t₁ " then " t₂ " else " t₃ => Term.ifz t₁ t₂ t₃
 infixl:99 " ; " => Term.seq
 infixl:99 " inn " => Term.inSet
-prefix:100 "ASSERT " => Term.assert
+prefix:100 "assert " => Term.assert
 notation "let " x " := " t " in " b => Term.lett x t b

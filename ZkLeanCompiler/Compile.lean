@@ -98,12 +98,23 @@ def compileExpr {f} [Field f] (t : Term f) (env : Env f) : ZKBuilder f (ZKExpr f
   | Term.lett x t1 t2 => do
     let xVal ← compileExpr t1 env
     withBinding x xVal (compileExpr t2 env)
-  | Term.inSet t _ => do
+  | Term.inSet t ts => do
+  -- 1) compile the inner term
     let x ← compileExpr t env
-    let z ← Witnessable.witness
-    constrainR1CS x (ZKExpr.Literal 1) z
-    assertIsBool z
-    return z
+  -- 2) build product P = ∏ (x - c)
+    let prod ← ts.foldlM
+                (fun acc c => pure (ZKExpr.Mul acc (ZKExpr.Sub x (ZKExpr.Literal c))))
+                ((ZKExpr.Literal 1))
+  -- 3) allocate witnesses
+    let b   ← Witnessable.witness      -- Boolean result
+    let inv ← Witnessable.witness      -- inverse of prod when prod ≠ 0
+  -- 4) add constraints
+    constrainEq (ZKExpr.Mul b prod) (ZKExpr.Literal 0)           -- b * P = 0
+    constrainEq (ZKExpr.Mul prod inv)
+              (ZKExpr.Sub (ZKExpr.Literal 1) b)                -- P * inv = 1 - b
+    assertIsBool b                                               -- b ∈ {0,1}
+  -- 5) return Boolean indicator
+    return b
   | Term.assert t => do
     let x ← compileExpr t env
     assertIsBool x
@@ -112,17 +123,3 @@ def compileExpr {f} [Field f] (t : Term f) (env : Env f) : ZKBuilder f (ZKExpr f
   | Term.seq t1 t2 => do
     let _ ← compileExpr t1 env
     compileExpr t2 env
-
-
-
--- | Term.hash1 t => do
---   let a ← compileExpr t env
-  --   let c ← Witnessable.witness
-  --   constrainR1CS a (ZKExpr.Sub (ZKExpr.Literal 1) a) c
-  --   return c
-  -- | Term.hash2 t1 t2 => do
-  --   let a ← compileExpr t1 env
-  --   let b ← compileExpr t2 env
-  --   let c ← Witnessable.witness
-  --   constrainR1CS a b c
-  --   return c

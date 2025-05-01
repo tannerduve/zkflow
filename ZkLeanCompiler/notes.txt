@@ -1,0 +1,25 @@
+Here you go — additions integrated in your note style:
+
+---
+
+**Things I could have done differently:**
+
+- Define `op` as a type and generalize syntax by having `add`, `mul`, etc be special cases of `op`.  
+  → Then `wellScoped` and `Eval` lemmas could all be unified.
+
+- Similarly, could have a separate `stmt` type for `let`, `if`, `assert`, etc.  
+  → Would separate expressions from control flow more cleanly.
+
+- Use a **free monad** for `ZKBuilder` instead of `StateM`.  
+  → Would make it easier to inspect the structure of the constraint generation (e.g., for optimization, reordering, analysis). Worth understanding for future refactors.
+
+- Use a **HashMap for environments** (already done, but worth noting).  
+  → Tradeoff: HashMap gives fast lookups, but proving things about environments becomes less structural (e.g., hard to reason inductively over keys like in a list-based env).  
+  → But I needed constant-time lookup and overriding, so HashMap made sense here.
+
+- **Important: hashing**.  
+  → Currently left out. If I wanted to support hash functions (like Poseidon), I'd need to add *lookup table support* in the constraint system.  
+  → That means: table setup, indexing constraints, and likely a backend-aware implementation.  
+  → Also hard to formally verify unless I use a dummy hash or axiomatize the hash gadget. Worth reading up on if I want to add it later.
+
+---

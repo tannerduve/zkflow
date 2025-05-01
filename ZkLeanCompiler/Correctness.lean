@@ -7,20 +7,6 @@ set_option linter.unusedTactic false
 
 variable {F} [JoltField F]
 
-lemma wellScoped_of_neg_wellScoped (t : Term F) (env : Env F) :
-  wellScoped (Term.not t) env ↔ wellScoped t env := by
-  constructor
-  · intro h
-    simp [Term.not] at h
-    exact h
-  · intro h
-    simp [Term.not] at h
-    exact h
-
-lemma eval_bool {f} [JoltField f] {b : Bool} {w : List f} :
-  semantics_zkexpr (ZKExpr.Literal (if b then 1 else 0)) w =
-    Value.VField (if b then 1 else 0) := rfl
-
 lemma assertIsBool_sound {f} [JoltField f]
   {x : ZKExpr f} {w : List f} :
   (semantics_zkexpr x w = Value.VField (0 : f) ∨
@@ -51,23 +37,30 @@ lemma r1cs_sound {f} [JoltField f] {x y z : ZKExpr f} {w : List f}
   · case None =>
     simp
 
-/-- `constraints_semantics` distributes over list append. -/
-lemma constraints_semantics_append {f} [JoltField f]
-  {c₁ c₂ : List (ZKExpr f)} {w : List f} :
-  constraints_semantics (c₁ ++ c₂) w =
-    (constraints_semantics c₁ w && constraints_semantics c₂ w) := by
-  induction c₁
-  · simp [constraints_semantics]
-  · case cons h tl ih =>
-    simp [constraints_semantics]
-    rw [ih]
-    cases hsem : semantics_zkexpr h w
-    · case VBool b =>
-      simp [hsem, Bool.and_assoc]
-    · case VField f =>
-      simp [hsem]
-    · case None =>
-      simp [hsem]
+lemma constrainR1CS_sound
+  {f} [JoltField f] (a b c : ZKExpr f) (w : List f) (x y : f)
+  (ha : semantics_zkexpr a w = Value.VField x)
+  (hb : semantics_zkexpr b w = Value.VField y)
+  (hc : semantics_zkexpr c w = Value.VField (x * y)) :
+  constraints_semantics
+    ((constrainR1CS a b c).run initialZKBuilderState |>.2.constraints) w = true := by
+  simp [constrainR1CS, constraints_semantics, StateT.run, constrainEq,
+  constrain]
+
+
+
+
+
+
+
+lemma assertIsBool_sound_monad
+  {f} [JoltField f] (x : ZKExpr f) (w : List f) :
+  (semantics_zkexpr x w = Value.VField (0 : f) ∨
+   semantics_zkexpr x w = Value.VField 1) →
+  constraints_semantics
+    ((assertIsBool x).run initialZKBuilderState |>.2.constraints) w = true
+  := by sorry
+
 
 -- append distributes
 lemma cs_append {f} [JoltField f] {c₁ c₂ : List (ZKExpr f)} {w : List f} :
@@ -90,6 +83,207 @@ lemma cs_append {f} [JoltField f] {c₁ c₂ : List (ZKExpr f)} {w : List f} :
 lemma get_last {α} {l₁ l₂ : List α} {x : α} [Inhabited α] :
   List.get! (l₁ ++ l₂ ++ [x]) (l₁.length + l₂.length) = x := by
   simp [List.get!]
+
+----------------------------- WELL SCOPED LEMMAS -----------------------------
+/-
+These lemmas are each of the form `wellScoped t env → wellScoped (Term.op t) env` where op is some
+operation on terms, eg. Term.add, etc.
+-/
+lemma wellScoped_of_neg_wellScoped (t : Term F) (env : Env F) :
+  wellScoped (Term.not t) env ↔ wellScoped t env := by
+  constructor
+  · intro h
+    simp [Term.not] at h
+    exact h
+  · intro h
+    simp [Term.not] at h
+    exact h
+
+lemma wellScoped_of_and_wellScoped (t₁ t₂ : Term F) (env : Env F) :
+ wellScoped t₁ env ∧ wellScoped t₂ env → wellScoped (Term.and t₁ t₂) env := by
+  intro h
+  cases' h with h₁ h₂
+  simp [Term.and] at *
+  intros x xfree
+  simp [wellScoped] at h₁ h₂
+  unfold freeVars at xfree
+  simp [Set.mem_union] at xfree
+  cases' xfree with h₃ h₄
+  specialize h₁ x h₃
+  exact h₁
+  specialize h₂ x h₄
+  exact h₂
+
+lemma wellScoped_of_or_wellScoped (t₁ t₂ : Term F) (env : Env F) :
+  wellScoped t₁ env ∧ wellScoped t₂ env → wellScoped (Term.or t₁ t₂) env := by
+  intro h
+  cases' h with h₁ h₂
+  simp [Term.or] at *
+  intros x xfree
+  simp [wellScoped] at h₁ h₂
+  unfold freeVars at xfree
+  simp [Set.mem_union] at xfree
+  cases' xfree with h₃ h₄
+  specialize h₁ x h₃
+  exact h₁
+  specialize h₂ x h₄
+  exact h₂
+
+lemma wellScoped_of_add_wellScoped (t₁ t₂ : Term F) (env : Env F) :
+  wellScoped t₁ env ∧ wellScoped t₂ env → wellScoped (Term.add t₁ t₂) env := by
+  intro h
+  cases' h with h₁ h₂
+  simp [Term.add] at *
+  intros x xfree
+  simp [wellScoped] at h₁ h₂
+  unfold freeVars at xfree
+  simp [Set.mem_union] at xfree
+  cases' xfree with h₃ h₄
+  specialize h₁ x h₃
+  exact h₁
+  specialize h₂ x h₄
+  exact h₂
+
+lemma wellScoped_of_sub_wellScoped (t₁ t₂ : Term F) (env : Env F) :
+  wellScoped t₁ env ∧ wellScoped t₂ env → wellScoped (Term.sub t₁ t₂) env := by
+  intro h
+  cases' h with h₁ h₂
+  simp [Term.sub] at *
+  intros x xfree
+  simp [wellScoped] at h₁ h₂
+  unfold freeVars at xfree
+  simp [Set.mem_union] at xfree
+  cases' xfree with h₃ h₄
+  specialize h₁ x h₃
+  exact h₁
+  specialize h₂ x h₄
+  exact h₂
+
+lemma wellScoped_of_mul_wellScoped (t₁ t₂ : Term F) (env : Env F) :
+  wellScoped t₁ env ∧ wellScoped t₂ env → wellScoped (Term.mul t₁ t₂) env := by
+  intro h
+  cases' h with h₁ h₂
+  simp [Term.mul] at *
+  intros x xfree
+  simp [wellScoped] at h₁ h₂
+  unfold freeVars at xfree
+  simp [Set.mem_union] at xfree
+  cases' xfree with h₃ h₄
+  specialize h₁ x h₃
+  exact h₁
+  specialize h₂ x h₄
+  exact h₂
+
+lemma wellScoped_of_eq_wellScoped (t₁ t₂ : Term F) (env : Env F) :
+  wellScoped t₁ env ∧ wellScoped t₂ env → wellScoped (Term.eq t₁ t₂) env := by
+  intro h
+  cases' h with h₁ h₂
+  simp [Term.eq] at *
+  intros x xfree
+  simp [wellScoped] at h₁ h₂
+  unfold freeVars at xfree
+  simp [Set.mem_union] at xfree
+  cases' xfree with h₃ h₄
+  specialize h₁ x h₃
+  exact h₁
+  specialize h₂ x h₄
+  exact h₂
+
+lemma wellScoped_of_ifz_wellScoped (t₁ t₂ t₃ : Term F) (env : Env F) :
+  wellScoped t₁ env ∧ wellScoped t₂ env ∧ wellScoped t₃ env →
+  wellScoped (Term.ifz t₁ t₂ t₃) env := by
+  intro h
+  cases' h with h₁ h₂
+  cases' h₂ with h₂l h₂r
+  simp [Term.ifz] at *
+  intros x xfree
+  simp [wellScoped] at h₁ h₂l h₂r
+  unfold freeVars at xfree
+  simp [Set.mem_union] at xfree
+  cases' xfree with h₃ h₄
+  specialize h₁ x h₃
+  exact h₁
+  cases' h₄ with lt rt
+  specialize h₂l x lt
+  exact h₂l
+  specialize h₂r x rt
+  exact h₂r
+
+lemma weakening (env : Env F) (x₁ x₂ : String) (v : Val F) :
+  x₁ ≠ x₂ →
+  env.lookup x₁ = (env.insert x₂ v).lookup x₁ := by
+  intro hne
+  symm at hne
+  simp [Env.insert, hne]
+
+lemma wellScoped_of_lett_wellScoped (x : String) (t₁ t₂ : Term F) (env : Env F) :
+  wellScoped t₁ env ∧ wellScoped t₂ (Env.insert x (Val.Field 0) env) →
+  wellScoped (Term.lett x t₁ t₂) env := by
+  intro h
+  cases' h with h₁ h₂
+  simp [Term.lett] at *
+  intros y yfree
+  simp [wellScoped] at h₁ h₂
+  unfold freeVars at yfree
+  simp [Set.mem_diff] at yfree
+  cases' yfree with h₃ h₄
+  specialize h₁ y h₃
+  exact h₁
+  push_neg at h₁
+  by_cases h : (y = x)
+  · subst h
+    simp [h₁]
+    push_neg
+    specialize h₂ y h₄.1
+    push_neg  at h₄
+    cases' h₄ with h₄l h₄r
+    contradiction
+  · specialize h₂ y h₄.1
+    push_neg at h₄ h
+    have lookup_eq : env.lookup y = (env.insert x (Val.Field 0)).lookup y := by
+      apply weakening
+      exact h
+    cases' h₂ with v' h₂'
+    use v'
+    rw [lookup_eq]
+    push_neg at h₂'
+    exact h₂'
+
+lemma wellScoped_of_seq_wellScoped (t₁ t₂ : Term F) (env : Env F) :
+  wellScoped t₁ env ∧ wellScoped t₂ env → wellScoped (Term.seq t₁ t₂) env := by
+  intro h
+  cases' h with h₁ h₂
+  simp [Term.seq] at *
+  intros x xfree
+  simp [wellScoped] at h₁ h₂
+  unfold freeVars at xfree
+  simp [Set.mem_union] at xfree
+  cases' xfree with h₃ h₄
+  specialize h₁ x h₃
+  exact h₁
+  specialize h₂ x h₄
+  exact h₂
+
+lemma wellScoped_of_assert_wellScoped (t : Term F) (env : Env F) :
+  wellScoped t env → wellScoped (Term.assert t) env := by
+  intro h
+  simp [wellScoped] at h
+  intro x xfree
+  unfold freeVars at xfree
+  specialize h x xfree
+  simp
+  exact h
+
+lemma wellScoped_of_inSet_wellScoped (t : Term F) (ts : List F) (env : Env F) :
+  wellScoped t env → wellScoped (Term.inSet t ts) env := by
+  intro h
+  simp [wellScoped] at h
+  intro x xfree
+  unfold freeVars at xfree
+  specialize h x xfree
+  exact h
+
+------------------------ WELL SCOPED LEMMAS ---------------------------
 
 /--
 Correctness of the constraint compiler.
