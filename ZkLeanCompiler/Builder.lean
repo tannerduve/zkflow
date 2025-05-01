@@ -19,6 +19,100 @@ def initialZKBuilderState : ZKBuilderState f :=
 -- TODO: Make this a free monad?
 def ZKBuilder (f:Type) := StateM (ZKBuilderState f)
 
+-- Free Monad
+inductive Free (f : Type u → Type v) (α : Type) where
+  | pure : α → Free f α
+  | bind : ∀ x, f x -> (x -> Free f α) → Free f α
+
+def map {α β : Type} (func : Type u → Type v) (f : α → β) : Free func α → Free func β := λ x =>
+  match x with
+  | Free.pure a => Free.pure (f a)
+  | Free.bind x y k => Free.bind x y (λ a => map func f (k a))
+
+instance (f : Type u → Type v) : Functor (Free f) where
+  map := map f
+
+def bindFree {α β : Type} (f : Type u → Type v): (Free f α) → (α → Free f β) → Free f β :=
+  λ x k =>
+    match x with
+    | Free.pure a => k a
+    | Free.bind x y k' => Free.bind x y (λ a => bindFree f (k' a) k)
+
+instance (f : Type u → Type v) : Monad (Free f) where
+  pure := Free.pure
+  bind := bindFree f
+
+-- instance : LawfulMonad (Free f) where
+--   pure_bind := by
+--     intros α β x f'
+--     simp [bind, bindFree]
+--   bind_map := by
+--     intros α β x f'
+--     simp [bind, Seq.seq]
+--   bind_pure_comp := by
+--     intros α β x f'
+--     simp [bind, pure, Functor.map]
+--     unfold bindFree
+--     induction' f' with a X a' alg ih
+--     · case pure => simp [bindFree, map]
+--     · simp [bindFree, map]
+--       apply funext
+--       intro x₁
+--       specialize ih x₁
+--       induction h : alg x₁ with
+--         | pure a =>
+--           simp [bindFree, map, h]
+--         | bind X fx k' a_ih =>
+--           simp [bindFree, map, h]
+--           funext a
+--           specialize a_ih a
+--           simp [h, map] at ih
+--           rw [← congr_fun ih a]
+--   bind_assoc := by sorry
+--   map_pure := by
+--     intros α β x f'
+--     simp [Functor.map, map, pure]
+--   seq_pure := by
+--     intro α β g x
+--     simp [Seq.seq, Functor.map]
+--     unfold bindFree
+--     induction' g with a X a' alg ih
+--     · case pure => simp [bindFree, map]
+--     · case bind =>
+--       simp [bindFree, map]
+--       apply funext
+--       intro x₁
+--       specialize ih x₁
+--       induction h : alg x₁ with
+--         | pure a =>
+--           simp [bindFree, map, h]
+--         | bind X fx k' a_ih =>
+--           simp [bindFree, map, h]
+--           funext a
+--           specialize a_ih a
+--           simp [h, map] at ih
+--           rw [← congr_fun ih a]
+--   seq_assoc := by
+--     intros α β γ g x y
+--     simp [Seq.seq, Functor.map]
+--     unfold bindFree
+--     induction' y with a X a' alg ih
+--     · case pure =>
+--       simp [bindFree, map]
+--       sorry
+--     sorry
+
+-- given a type α we'd get (ZkBuilder f) α = (ZkBuilderState f) -> (α, ZkBuilderState f)
+-- explanation: one can read the current state and return a value and the new state
+
+
+def ZKBuilderFree (α:Type) := Free (ZKBuilderState) α
+
+instance : Monad ZKBuilderFree where
+  pure := Free.pure
+  bind := bindFree (ZKBuilderState)
+  map := map (ZKBuilderState)
+
 instance: Monad (ZKBuilder f) where
   pure := StateT.pure
   bind := StateT.bind
@@ -27,19 +121,6 @@ instance : MonadStateOf (ZKBuilderState f) (ZKBuilder f) where
   get := StateT.get
   set := StateT.set
   modifyGet := StateT.modifyGet
-
--- structure ZKBuilder (a: Type) where
---   runBuilder: ZKBuilderState -> (a, ZKBuilderState)
-
--- instance : Monad ZKBuilder where
---   pure _x :=
---     {
---       environment := Std.HashMap.empty,
---     } -- TODO
---   bind _opt _next :=
---     {
---       environment := Std.HashMap.empty,
---     } -- TODO
 
 def witnessf : ZKBuilder f (ZKExpr f) := do
   let old_state <- StateT.get

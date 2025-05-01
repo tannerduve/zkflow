@@ -7,36 +7,6 @@ set_option linter.unusedTactic false
 
 variable {F} [JoltField F]
 
-lemma assertIsBool_sound {f} [JoltField f]
-  {x : ZKExpr f} {w : List f} :
-  (semantics_zkexpr x w = Value.VField (0 : f) ∨
-   semantics_zkexpr x w = Value.VField 1) →
-  constraints_semantics
-      [ZKExpr.Eq (ZKExpr.Mul x (ZKExpr.Sub (ZKExpr.Literal 1) x)) (ZKExpr.Literal 0)] w = true := by
-  intro h
-  cases' h with inl inr
-  · simp [constraints_semantics, semantics_zkexpr, semantics_zkexpr.eval, semantics_zkexpr.eval] at inl ⊢
-    simp [inl]
-  · simp [constraints_semantics, semantics_zkexpr, semantics_zkexpr.eval, semantics_zkexpr.eval] at inr ⊢
-    simp [inr]
-
-lemma r1cs_sound {f} [JoltField f] {x y z : ZKExpr f} {w : List f}
-  {a b : f} (hx : semantics_zkexpr x w = Value.VField a)
-           (hy : semantics_zkexpr y w = Value.VField b)
-           (hz : semantics_zkexpr z w = Value.VField (a*b)) :
-  constraints_semantics [ZKExpr.Eq (ZKExpr.Mul x y) z] w = true := by
-  simp [constraints_semantics, hx, hy, hz]
-  dsimp [semantics_zkexpr, semantics_zkexpr.eval]
-  simp [semantics_zkexpr] at hz hy hx
-  rw [hx, hy, hz]
-  cases semantics_zkexpr.eval w z
-  · case VBool b' =>
-    simp
-  · case VField f' =>
-    simp
-  · case None =>
-    simp
-
 lemma constrainR1CS_sound
   {f} [JoltField f] (a b c : ZKExpr f) (w : List f) (x y : f)
   (ha : semantics_zkexpr a w = Value.VField x)
@@ -46,20 +16,35 @@ lemma constrainR1CS_sound
     ((constrainR1CS a b c).run initialZKBuilderState |>.2.constraints) w = true := by
   simp [constrainR1CS, constraints_semantics, StateT.run, constrainEq,
   constrain]
+  simp [semantics_zkexpr] at ha hb hc
+  simp [initialZKBuilderState]
+  simp only [pure, bind, StateT.get, StateT.bind, pure, StateT.set]
+  simp [StateT.pure, constraints_semantics, semantics_zkexpr, semantics_zkexpr.eval]
+  rw [ha, hb, hc]
+  simp
 
-
-
-
-
-
-
-lemma assertIsBool_sound_monad
+lemma assertIsBool_sound
   {f} [JoltField f] (x : ZKExpr f) (w : List f) :
   (semantics_zkexpr x w = Value.VField (0 : f) ∨
    semantics_zkexpr x w = Value.VField 1) →
   constraints_semantics
     ((assertIsBool x).run initialZKBuilderState |>.2.constraints) w = true
-  := by sorry
+  := by
+  simp [assertIsBool, constraints_semantics, StateT.run, constrainEq, constrain]
+  rintro h
+  cases' h with lt rt
+  · simp [StateT.run, assertIsBool_sound] at lt
+    apply constrainR1CS_sound
+    · apply lt
+    · simp [semantics_zkexpr, semantics_zkexpr.eval] at lt ⊢
+      rw [lt]
+    · simp [semantics_zkexpr, semantics_zkexpr.eval] at lt ⊢
+  · simp [StateT.run, assertIsBool_sound] at rt
+    apply constrainR1CS_sound
+    · apply rt
+    · simp [semantics_zkexpr, semantics_zkexpr.eval] at rt ⊢
+      rw [rt]
+    · simp [semantics_zkexpr, semantics_zkexpr.eval] at rt ⊢
 
 
 -- append distributes
@@ -100,94 +85,112 @@ lemma wellScoped_of_neg_wellScoped (t : Term F) (env : Env F) :
     exact h
 
 lemma wellScoped_of_and_wellScoped (t₁ t₂ : Term F) (env : Env F) :
- wellScoped t₁ env ∧ wellScoped t₂ env → wellScoped (Term.and t₁ t₂) env := by
+ wellScoped (Term.and t₁ t₂) env → wellScoped t₁ env ∧ wellScoped t₂ env := by
   intro h
-  cases' h with h₁ h₂
-  simp [Term.and] at *
-  intros x xfree
-  simp [wellScoped] at h₁ h₂
-  unfold freeVars at xfree
-  simp [Set.mem_union] at xfree
-  cases' xfree with h₃ h₄
-  specialize h₁ x h₃
-  exact h₁
-  specialize h₂ x h₄
-  exact h₂
+  simp [wellScoped] at h
+  constructor
+  · intro x xfree
+    unfold freeVars at h
+    specialize h x
+    simp [Set.mem_union] at h
+    specialize h (Or.inl xfree)
+    exact h
+  · intro x xfree
+    unfold freeVars at h
+    specialize h x
+    simp [Set.mem_union] at h
+    specialize h (Or.inr xfree)
+    exact h
 
 lemma wellScoped_of_or_wellScoped (t₁ t₂ : Term F) (env : Env F) :
-  wellScoped t₁ env ∧ wellScoped t₂ env → wellScoped (Term.or t₁ t₂) env := by
+ wellScoped (Term.or t₁ t₂) env → wellScoped t₁ env ∧ wellScoped t₂ env := by
   intro h
-  cases' h with h₁ h₂
-  simp [Term.or] at *
-  intros x xfree
-  simp [wellScoped] at h₁ h₂
-  unfold freeVars at xfree
-  simp [Set.mem_union] at xfree
-  cases' xfree with h₃ h₄
-  specialize h₁ x h₃
-  exact h₁
-  specialize h₂ x h₄
-  exact h₂
+  simp [wellScoped] at h
+  constructor
+  · intro x xfree
+    unfold freeVars at h
+    specialize h x
+    simp [Set.mem_union] at h
+    specialize h (Or.inl xfree)
+    exact h
+  · intro x xfree
+    unfold freeVars at h
+    specialize h x
+    simp [Set.mem_union] at h
+    specialize h (Or.inr xfree)
+    exact h
 
 lemma wellScoped_of_add_wellScoped (t₁ t₂ : Term F) (env : Env F) :
-  wellScoped t₁ env ∧ wellScoped t₂ env → wellScoped (Term.add t₁ t₂) env := by
+ wellScoped (Term.add t₁ t₂) env → wellScoped t₁ env ∧ wellScoped t₂ env := by
   intro h
-  cases' h with h₁ h₂
-  simp [Term.add] at *
-  intros x xfree
-  simp [wellScoped] at h₁ h₂
-  unfold freeVars at xfree
-  simp [Set.mem_union] at xfree
-  cases' xfree with h₃ h₄
-  specialize h₁ x h₃
-  exact h₁
-  specialize h₂ x h₄
-  exact h₂
+  simp [wellScoped] at h
+  constructor
+  · intro x xfree
+    unfold freeVars at h
+    specialize h x
+    simp [Set.mem_union] at h
+    specialize h (Or.inl xfree)
+    exact h
+  · intro x xfree
+    unfold freeVars at h
+    specialize h x
+    simp [Set.mem_union] at h
+    specialize h (Or.inr xfree)
+    exact h
 
 lemma wellScoped_of_sub_wellScoped (t₁ t₂ : Term F) (env : Env F) :
-  wellScoped t₁ env ∧ wellScoped t₂ env → wellScoped (Term.sub t₁ t₂) env := by
+ wellScoped (Term.sub t₁ t₂) env → wellScoped t₁ env ∧ wellScoped t₂ env := by
   intro h
-  cases' h with h₁ h₂
-  simp [Term.sub] at *
-  intros x xfree
-  simp [wellScoped] at h₁ h₂
-  unfold freeVars at xfree
-  simp [Set.mem_union] at xfree
-  cases' xfree with h₃ h₄
-  specialize h₁ x h₃
-  exact h₁
-  specialize h₂ x h₄
-  exact h₂
+  simp [wellScoped] at h
+  constructor
+  · intro x xfree
+    unfold freeVars at h
+    specialize h x
+    simp [Set.mem_union] at h
+    specialize h (Or.inl xfree)
+    exact h
+  · intro x xfree
+    unfold freeVars at h
+    specialize h x
+    simp [Set.mem_union] at h
+    specialize h (Or.inr xfree)
+    exact h
 
 lemma wellScoped_of_mul_wellScoped (t₁ t₂ : Term F) (env : Env F) :
-  wellScoped t₁ env ∧ wellScoped t₂ env → wellScoped (Term.mul t₁ t₂) env := by
+ wellScoped (Term.mul t₁ t₂) env → wellScoped t₁ env ∧ wellScoped t₂ env := by
   intro h
-  cases' h with h₁ h₂
-  simp [Term.mul] at *
-  intros x xfree
-  simp [wellScoped] at h₁ h₂
-  unfold freeVars at xfree
-  simp [Set.mem_union] at xfree
-  cases' xfree with h₃ h₄
-  specialize h₁ x h₃
-  exact h₁
-  specialize h₂ x h₄
-  exact h₂
+  simp [wellScoped] at h
+  constructor
+  · intro x xfree
+    unfold freeVars at h
+    specialize h x
+    simp [Set.mem_union] at h
+    specialize h (Or.inl xfree)
+    exact h
+  · intro x xfree
+    unfold freeVars at h
+    specialize h x
+    simp [Set.mem_union] at h
+    specialize h (Or.inr xfree)
+    exact h
 
 lemma wellScoped_of_eq_wellScoped (t₁ t₂ : Term F) (env : Env F) :
-  wellScoped t₁ env ∧ wellScoped t₂ env → wellScoped (Term.eq t₁ t₂) env := by
+ wellScoped (Term.mul t₁ t₂) env → wellScoped t₁ env ∧ wellScoped t₂ env := by
   intro h
-  cases' h with h₁ h₂
-  simp [Term.eq] at *
-  intros x xfree
-  simp [wellScoped] at h₁ h₂
-  unfold freeVars at xfree
-  simp [Set.mem_union] at xfree
-  cases' xfree with h₃ h₄
-  specialize h₁ x h₃
-  exact h₁
-  specialize h₂ x h₄
-  exact h₂
+  simp [wellScoped] at h
+  constructor
+  · intro x xfree
+    unfold freeVars at h
+    specialize h x
+    simp [Set.mem_union] at h
+    specialize h (Or.inl xfree)
+    exact h
+  · intro x xfree
+    unfold freeVars at h
+    specialize h x
+    simp [Set.mem_union] at h
+    specialize h (Or.inr xfree)
+    exact h
 
 lemma wellScoped_of_ifz_wellScoped (t₁ t₂ t₃ : Term F) (env : Env F) :
   wellScoped t₁ env ∧ wellScoped t₂ env ∧ wellScoped t₃ env →
