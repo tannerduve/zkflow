@@ -1,8 +1,8 @@
 import Std.Data.HashMap.Basic
 import «ZkLeanCompiler».AST
+import Mathlib.Tactic.Cases
 
 structure ZKBuilderState (f : Type) where
-  -- environment: Std.HashMap Ident (ZKExpr f)
   allocated_witness_count: Nat
   constraints: List (ZKExpr f)
   env : Std.HashMap String (ZKExpr f)
@@ -19,9 +19,6 @@ def initialZKBuilderState : ZKBuilderState f :=
 -- TODO: Make this a free monad?
 def ZKBuilder (f:Type) := StateM (ZKBuilderState f)
 
--- given a type α we'd get (ZkBuilder f) α = (ZkBuilderState f) -> (α, ZkBuilderState f)
--- explanation: one can read the current state and return a value and the new state
-
 instance: Monad (ZKBuilder f) where
   pure := StateT.pure
   bind := StateT.bind
@@ -31,26 +28,7 @@ instance : MonadStateOf (ZKBuilderState f) (ZKBuilder f) where
   set := StateT.set
   modifyGet := StateT.modifyGet
 
--- structure ZKBuilder (a: Type) where
---   runBuilder: ZKBuilderState -> (a, ZKBuilderState)
-
--- instance : Monad ZKBuilder where
---   pure _x :=
---     {
---       environment := Std.HashMap.empty,
---     } -- TODO
---   bind _opt _next :=
---     {
---       environment := Std.HashMap.empty,
---     } -- TODO
-
 def witnessf : ZKBuilder f (ZKExpr f) := do
-  /-let old_count <- StateT.modifyGet
-    (fun old_state =>
-      let (p :Nat) := old_state.allocated_wire_count
-      (p, {old_state with allocated_wire_count := p + 1 })
-    )
-    -/
   let old_state <- StateT.get
   let old_count := old_state.allocated_witness_count
   let new_count := old_count +1
