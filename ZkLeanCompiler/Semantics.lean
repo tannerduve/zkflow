@@ -9,6 +9,13 @@ inductive Value (f: Type) [JoltField f] where
   | VBool : Bool -> Value f
   | VField : f -> Value f
   | None : Value f
+deriving Inhabited, BEq
+
+instance {f} [ToString f] [JoltField f] : ToString (Value f) where
+  toString
+    | Value.VBool b  => toString b
+    | Value.VField x => toString x
+    | Value.None     => "⊥"
 
 def Val.toValue [JoltField f] : Val f → Value f
   | Val.Field x => Value.VField x
@@ -20,7 +27,7 @@ def semantics_zkexpr [JoltField f] (exprs: ZKExpr f) (witness: List f) : Value f
     match e with
     | ZKExpr.Literal lit => Value.VField lit
     | ZKExpr.WitnessVar id =>
-      if compare id (witness.length : WitnessId) == Ordering.lt
+      if id < witness.length
       then Value.VField (witness.get! id)
       else Value.None
     | ZKExpr.Add lhs rhs =>

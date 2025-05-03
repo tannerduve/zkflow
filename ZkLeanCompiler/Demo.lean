@@ -35,21 +35,28 @@ instance : HNot (Term ℚ) where
 
 /-- Pretty printer for Term -/
 partial def Term.repr {f} [Field f] [ToString f] : Term f → String
-| var x      => x
-| lit n      => toString n
-| bool b     => toString b
-| add a b    => "(" ++ repr a ++ " + " ++ repr b ++ ")"
-| sub a b    => "(" ++ repr a ++ " - " ++ repr b ++ ")"
-| mul a b    => "(" ++ repr a ++ " * " ++ repr b ++ ")"
-| eq a b     => "(" ++ repr a ++ " == " ++ repr b ++ ")"
-| and a b    => "(" ++ repr a ++ " && " ++ repr b ++ ")"
-| or a b     => "(" ++ repr a ++ " || " ++ repr b ++ ")"
-| not a      => "!(" ++ repr a ++ ")"
-| lett x a b => "let " ++ x ++ " = " ++ repr a ++ " in " ++ repr b
-| Term.ifz c t e  => "ifz " ++ repr c ++ " then " ++ repr t ++ " else " ++ repr e
-| inSet a l  => "(" ++ repr a ++ " in {" ++ ", ".intercalate (l.map toString) ++ "})"
-| assert a   => "assert (" ++ repr a ++ ")"
-| seq a b    => repr a ++ " ; " ++ repr b
+| .var x        => x
+| .lit n        => toString n
+| .bool b       => toString b
+| .arith op a b =>
+  let opStr := match op with
+    | .add => " + "
+    | .sub => " - "
+    | .mul => " * "
+  "(" ++ repr a ++ opStr ++ repr b ++ ")"
+| .boolB op a b =>
+  let opStr := match op with
+    | .and => " && "
+    | .or  => " || "
+  "(" ++ repr a ++ opStr ++ repr b ++ ")"
+| .eq a b       => "(" ++ repr a ++ " == " ++ repr b ++ ")"
+| .not a        => "!(" ++ repr a ++ ")"
+| .lett x a b   => "let " ++ x ++ " = " ++ repr a ++ " in " ++ repr b
+| .ifz c t e    => "ifz " ++ repr c ++ " then " ++ repr t ++ " else " ++ repr e
+| .inSet a l    => "(" ++ repr a ++ " in {" ++ ", ".intercalate (l.map toString) ++ "})"
+| .assert a     => "assert (" ++ repr a ++ ")"
+| .seq a b      => repr a ++ " ; " ++ repr b
+
 
 /-- Pretty printer for ZKExpr -/
 partial def ZKExpr.repr {f} [ToString f] : ZKExpr f → String
@@ -75,10 +82,10 @@ def asciiFlow : String :=
 "
 
 /-- Demo runner: compile and print everything nicely -/
-def demo {f} [ToString f] [JoltField f]
+def demo {f} [ToString f] [JoltField f] [DecidableEq f]
     (program : Term f)
     (witness : List f)                      -- now mandatory
-    (env : Env f := {lookup := fun _ => none}) : IO Unit := do
+    (env : Env f := {lookup := fun _ => none}) (expected : Val f) : IO Unit := do
   IO.println asciiFlow
   IO.println "Program:"
   IO.println (Term.repr program)
@@ -96,8 +103,10 @@ def demo {f} [ToString f] [JoltField f]
   -- check constraint satisfaction
   let ok := constraints_semantics st.constraints witness
   IO.println s!"\nConstraints satisfied by witness? {ok}"
+  let actual := semantics_zkexpr compiled witness
 
--- Now NO `{F}` arguments in the demos!
+  IO.println s!"Compiled expression evaluates to: {actual}"
+  IO.println s!"Matches expected? {actual == Val.toValue expected}"
 
 instance hash : Hashable ℚ where
   hash q :=
@@ -134,75 +143,122 @@ instance : JoltField ℚ where
   }
 
 def arithmeticCheck : Term ℚ :=
-  Term.assert (
-    Term.eq
-      (Term.mul
-        (Term.lit 3)
-        (Term.add (Term.lit 2) (Term.lit 1)))
-      (Term.lit 9)
-  )
+  ASSERT ((3 ⊗ (2 .+. 1)) =-= 9)
 
 def booleanOrCheck : Term ℚ :=
-  Term.assert (
-    Term.or
-      (Term.bool true)
-      (Term.bool false)
-  )
+  ASSERT (Term.bool true || false)
 
 def ifzCheck : Term ℚ :=
-  Term.seq
-    (Term.assert (
-      Term.eq
-        (Term.ifz (Term.bool false) (Term.lit 1) (Term.lit 2))
-        (Term.lit 2)
-    ))
-    (Term.assert (
-      Term.eq
-        (Term.mul (Term.lit 2) (Term.lit 4))
-        (Term.lit 8)
-    ))
+  ASSERT ((ifz` false then` 1 else` 2) =-= 2) ;
+  ASSERT (2 ⊗ 4 =-= 8)
 
 def booleanAndCheck : Term ℚ :=
-  Term.assert (
-    Term.and
-      (Term.bool true)
-      (Term.bool true)
-  )
+  ASSERT (Term.bool true && true)
 
 def seqArithmetic : Term ℚ :=
-  Term.seq
-    (Term.assert (
-      Term.eq
-        (Term.add (Term.lit 2) (Term.lit 3))
-        (Term.lit 5)
-    ))
-    (Term.assert (
-      Term.eq
-        (Term.mul (Term.lit 2) (Term.lit 4))
-        (Term.lit 8)
-    ))
+     ASSERT (2 .+. 3 =-= 5) ;
+     ASSERT (2 ⊗ 4 =-= 8)
 
 def seqIfzArithmetic : Term ℚ :=
-  Term.seq
-    (Term.assert (
-      Term.eq
-        (Term.ifz (Term.bool false) (Term.lit 1) (Term.lit 2))
-        (Term.lit 2)
-    ))
-    (Term.assert (
-      Term.eq
-        (Term.add (Term.lit 4) (Term.lit 5))
-        (Term.lit 9)
-    ))
+  ASSERT ((ifz` false then` 1 else` 2) =-= 2) ;
+  ASSERT (4 .+. 5 =-= 9)
+
+-- Negation and equality
+def notEqCheck : Term ℚ :=
+  ASSERT (~ (1 =-= 2))
+
+-- Boolean logic with inSet
+def inSetCheck : Term ℚ :=
+  ASSERT (3 inn [1, 2, 3])
+
+-- Let binding and reuse
+def letBindingCheck : Term ℚ :=
+  LET "x" := 2 .+. 3 in
+  ASSERT (Term.var "x" ⊗ 2 =-= 10)
+
+-- Nested let and conditionals
+def nestedLetIfzCheck : Term ℚ :=
+  LET "x" := true in
+  LET "y" := ifz` Term.var "x" then` 5 else` 6 in
+  ASSERT (Term.var "y" =-= 5)
+
+-- Sequence with mixed arithmetic and boolean logic
+def complexSeqCheck : Term ℚ :=
+  ASSERT (1 .+. 2 =-= 3) ;
+  ASSERT (~ false && true) ;
+  ASSERT (7 .-. 2 =-= 5)
 
 def arithmeticWitness : List ℚ := [3, 9, 1] -- 3 = 2+1, 9 = 3*3, 1 = (9==9)
 def booleanAndWitness : List ℚ := [1, 1, 1]
 def booleanOrWitness : List ℚ := [1, 0, 1]
-def ifzWitness : List ℚ := [0, 0, 2, 1, 8, 1]
+def ifzWitness : List ℚ := [2, 1, 8, 1]
+def notEqWitness      : List ℚ := [0, 1]               -- ~false == true → 1
+def inSetWitness      : List ℚ := [1, 0, 1]            -- membership check output
+def letBindingWitness : List ℚ := [10, 1]           -- x = 5, x * 2 = 10, equality holds
+def nestedLetWitness  : List ℚ := [1]            -- x = 0, then y = 5
+def complexSeqWitness : List ℚ := [3, 1, 1, 1, 5, 1]       -- outputs of each expr in sequence
 
-#eval! demo arithmeticCheck arithmeticWitness
-#eval! demo booleanAndCheck booleanAndWitness
-#eval! demo ifzCheck ifzWitness
-#eval! demo booleanOrCheck booleanOrWitness
-#eval! demo seqArithmetic [5, 1, 8, 1]
-#eval! demo seqIfzArithmetic [0, 0, 2, 1, 9, 1]
+def mulAddCheck : Term ℚ := (2 .+. 3) ⊗ 4
+def mulAddWitness : List ℚ := [5, 20]  -- 2+3 = 5, 5*4 = 20
+def mulAddExpected : Val ℚ := Val.Field 20
+
+def boolLogicCheck : Term ℚ := Term.bool true && ~ Term.bool false
+def boolLogicWitness : List ℚ := [1, 1]
+def boolLogicExpected : Val ℚ := Val.Bool true
+
+def ifzTrueBranch : Term ℚ := ifz` 1 then` 42 else` 7
+def ifzTrueWitness : List ℚ := [42]
+def ifzTrueExpected : Val ℚ := Val.Field 42
+
+def ifzFalseBranch : Term ℚ := ifz` 0 then` 42 else` 7
+def ifzFalseWitness : List ℚ := [7]
+def ifzFalseExpected : Val ℚ := Val.Field 7
+
+def letUse : Term ℚ :=
+  LET "x" := 5 in (Term.var "x" ⊗ Term.var "x")
+def letUseWitness : List ℚ := [25]
+def letUseExpected : Val ℚ := Val.Field 25
+
+def inSetBool : Term ℚ := 3 inn [1, 2, 3]
+def inSetBoolWitness : List ℚ := [1, 0, 1]
+def inSetBoolExpected : Val ℚ := Val.Bool true
+
+def failAssertCheck : Term ℚ :=
+  ASSERT (2 .+. 2 =-= 5)
+
+def failAssertWitness : List ℚ := [4, 0]
+
+def failBoolCheck : Term ℚ :=
+  ASSERT (Term.bool true && false)
+
+def failBoolWitness : List ℚ := [1, 0, 0]
+
+def failInSetCheck : Term ℚ :=
+  ASSERT (4 inn [1, 2, 3])
+
+def failInSetWitness : List ℚ := [4, 3, 0]
+
+
+
+#eval! demo arithmeticCheck arithmeticWitness (expected := Val.Field 0)
+#eval! demo booleanAndCheck booleanAndWitness (expected := Val.Field 0)
+#eval! demo ifzCheck ifzWitness (expected := Val.Field 0)
+#eval! demo booleanOrCheck booleanOrWitness (expected := Val.Field 0)
+#eval! demo seqArithmetic [5, 1, 8, 1] (expected := Val.Field 0)
+#eval! demo seqIfzArithmetic [2, 1, 9, 1] (expected := Val.Field 0)
+#eval! demo notEqCheck notEqWitness (expected := Val.Field 0)
+#eval! demo inSetCheck inSetWitness (expected := Val.Field 0)
+#eval! demo letBindingCheck letBindingWitness (expected := Val.Field 0)
+#eval! demo nestedLetIfzCheck nestedLetWitness (expected := Val.Field 0)
+#eval! demo complexSeqCheck complexSeqWitness (expected := Val.Field 0)
+#eval! demo mulAddCheck mulAddWitness (expected := mulAddExpected)
+#eval! demo boolLogicCheck boolLogicWitness (expected := boolLogicExpected)
+#eval! demo ifzTrueBranch ifzTrueWitness (expected := ifzTrueExpected)
+#eval! demo ifzFalseBranch ifzFalseWitness (expected := ifzFalseExpected)
+#eval! demo letUse letUseWitness (expected := letUseExpected)
+#eval! demo inSetBool inSetBoolWitness (expected := inSetBoolExpected)
+
+-- Failing tests
+#eval! demo failAssertCheck failAssertWitness (expected := Val.Field 0)
+#eval! demo failBoolCheck failBoolWitness (expected := Val.Field 0)
+#eval! demo failInSetCheck failInSetWitness (expected := Val.Field 0)

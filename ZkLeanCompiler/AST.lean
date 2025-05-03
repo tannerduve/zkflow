@@ -8,16 +8,10 @@ deriving instance BEq, Ord, Hashable for Ident
 instance : OfNat (Ident) n where
   ofNat := n
 
-def WitnessId := Nat
-deriving instance BEq, Ord, LT, Hashable, ToString for WitnessId
-
--- TODO: Is this needed?
-instance : OfNat (WitnessId) n where
-  ofNat := n
 
 inductive ZKExpr (f: Type) where
   | Literal : (lit: f) -> ZKExpr f
-  | WitnessVar : (id: WitnessId) -> ZKExpr f
+  | WitnessVar : (id: Nat) -> ZKExpr f
   | Add : (lhs: ZKExpr f) -> (rhs: ZKExpr f) -> ZKExpr f
   | Sub : (lhs: ZKExpr f) -> (rhs: ZKExpr f) -> ZKExpr f
   | Neg : (rhs: ZKExpr f) -> ZKExpr f

@@ -1,0 +1,31 @@
+import ZkLeanCompiler.Compile
+
+theorem homomorphism_theorem_arith
+    [JoltField f] [DecidableEq f]
+    (op : ArithBinOp) (a b : Term f) (env : Env f) :
+  compileExpr (Term.arith op a b) env =
+    do
+      let ea ← compileExpr a env
+      let eb ← compileExpr b env
+      let result ← liftOpM op ea eb
+      return result := by
+  induction op
+  all_goals {
+    simp [compileExpr, liftOpM]
+    rfl
+  }
+
+theorem homomorphism_theorem_bool
+    [JoltField f] [DecidableEq f]
+    (op : BoolBinOp) (a b : Term f) (env : Env f) :
+  compileExpr (Term.boolB op a b) env =
+    do
+      let ea ← compileExpr a env
+      let eb ← compileExpr b env
+      let result ← BoolBinOp.liftM op ea eb
+      return result := by
+  induction op
+  all_goals {
+    simp [compileExpr, BoolBinOp.liftM]
+    rfl
+  }

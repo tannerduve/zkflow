@@ -21,33 +21,28 @@ inductive Eval (f : Type) [Field f] [BEq f] : Term f → Env f → Val f → Pro
     Eval f (Term.lit n) env (Val.Field n)
 | bool : ∀ (env : Env f) (b : Bool),
     Eval f (Term.bool b) env (Val.Bool b)
-| add : ∀ (env : Env f) (t1 t2 : Term f) (n1 n2 : f),
-    Eval f t1 env (Val.Field n1) →
-    Eval f t2 env (Val.Field n2) →
-    Eval f (t1 ⊕ t2) env (Val.Field (n1 + n2))
-| sub : ∀ (env : Env f) (t1 t2 : Term f) (n1 n2 : f),
-    Eval f t1 env (Val.Field n1) →
-    Eval f t2 env (Val.Field n2) →
-    Eval f (t1 - t2) env (Val.Field (n1 - n2))
-| mul : ∀ (env : Env f) (t1 t2 : Term f) (n1 n2 : f),
-    Eval f t1 env (Val.Field n1) →
-    Eval f t2 env (Val.Field n2) →
-    Eval f (t1 ⊗ t2) env (Val.Field (n1 * n2))
-| eq : ∀ (env : Env f) (t1 t2 : Term f) (v1 v2 : Val f),
-    Eval f t1 env v1 →
-    Eval f t2 env v2 →
-    Eval f (t1 =-= t2) env (Val.Bool (eqVal v1 v2))
-| and : ∀ (env : Env f) (t1 t2 : Term f) (b1 b2 : Bool),
-    Eval f t1 env (Val.Bool b1) →
-    Eval f t2 env (Val.Bool b2) →
-    Eval f (t1 && t2) env (Val.Bool (b1 && b2))
-| or : ∀ (env : Env f) (t1 t2 : Term f) (b1 b2 : Bool),
-    Eval f t1 env (Val.Bool b1) →
-    Eval f t2 env (Val.Bool b2) →
-    Eval f (t1 || t2) env (Val.Bool (b1 || b2))
+| arith : ∀ (env : Env f) (op : ArithBinOp) (t₁ t₂ : Term f) (n₁ n₂ : f),
+    Eval f t₁ env (Val.Field n₁) →
+    Eval f t₂ env (Val.Field n₂) →
+    Eval f (Term.arith op t₁ t₂) env (Val.Field (
+      match op with
+      | .add => n₁ + n₂
+      | .sub => n₁ - n₂
+      | .mul => n₁ * n₂))
+| boolB : ∀ (env : Env f) (op : BoolBinOp) (t₁ t₂ : Term f) (b₁ b₂ : Bool),
+    Eval f t₁ env (Val.Bool b₁) →
+    Eval f t₂ env (Val.Bool b₂) →
+    Eval f (Term.boolB op t₁ t₂) env (Val.Bool (
+      match op with
+      | .and => b₁ && b₂
+      | .or  => b₁ || b₂))
+| eq : ∀ (env : Env f) (t₁ t₂ : Term f) (v₁ v₂ : Val f),
+    Eval f t₁ env v₁ →
+    Eval f t₂ env v₂ →
+    Eval f (t₁ =-= t₂) env (Val.Bool (eqVal v₁ v₂))
 | not : ∀ (env : Env f) (t : Term f) (b : Bool),
     Eval f t env (Val.Bool b) →
-    Eval f (∼t) env (Val.Bool (!b))
+    Eval f (~t) env (Val.Bool (!b))
 | lett : ∀ (env env' : Env f) (x : String) (t₁ t₂ : Term f) (v : Val f) (v' : Val f),
     Eval f t₁ env v →
     env' = Env.insert x v env →
@@ -56,21 +51,14 @@ inductive Eval (f : Type) [Field f] [BEq f] : Term f → Env f → Val f → Pro
 | ifz_true : ∀ (env : Env f) (t₁ t₂ t₃ : Term f) (v : Val f),
     Eval f t₁ env (Val.Bool true) →
     Eval f t₂ env v →
-    Eval f (ifz t₁ then t₂ else t₃) env v
+    Eval f (ifz` t₁ then` t₂ else` t₃) env v
 | ifz_false : ∀ (env : Env f) (t₁ t₂ t₃ : Term f) (v : Val f),
     Eval f t₁ env (Val.Bool false) →
     Eval f t₃ env v →
-    Eval f (ifz t₁ then t₂ else t₃) env v
+    Eval f (ifz` t₁ then` t₂ else` t₃) env v
 | assert : ∀ (env : Env f) (t : Term f),
     Eval f t env (Val.Bool true) →
-    Eval f (Term.assert t) env (Val.Unit)
--- | hash1 : ∀ (env : Env f) (t : Term f) (v : f),
---     Eval f t env (Val.Field v) →
---     Eval f (#t) env (Val.Field (unaryhashFn v))
--- | hash2 : ∀ (env : Env f) (t1 t2 : Term f) (v1 v2 : f),
---     Eval f t1 env (Val.Field v1) →
---     Eval f t2 env (Val.Field v2) →
---     Eval f (t1 ## t2) env (Val.Field (binaryhashFn v1 v2))
+    Eval f (ASSERT t) env Val.Unit
 | inSet_true : ∀ (env : Env f) (t : Term f) (ts : List f) (x : f),
     Eval f t env (Val.Field x) →
     x ∈ ts →
@@ -79,7 +67,72 @@ inductive Eval (f : Type) [Field f] [BEq f] : Term f → Env f → Val f → Pro
     Eval f t env (Val.Field x) →
     x ∉ ts →
     Eval f (t inn ts) env (Val.Bool false)
-| seq : ∀ (env : Env f) (t1 t2 : Term f) (v : Val f),
-    Eval f t1 env (Val.Unit) →
-    Eval f t2 env v →
-    Eval f (t1 ; t2) env v
+| seq : ∀ (env : Env f) (t₁ t₂ : Term f) (v : Val f),
+    Eval f t₁ env Val.Unit →
+    Eval f t₂ env v →
+    Eval f (t₁ ; t₂) env v
+
+def eval {f} [Field f] [BEq f] [DecidableEq f] : Term f → Env f → Option (Val f)
+| Term.var x, env =>
+  match env.lookup x with
+  | some (Val.Bool b)  => some (Val.Field (if b then 1 else 0))
+  | other              => other
+| Term.lit n, _ =>
+  some (Val.Field n)
+| Term.bool b, _ =>
+  some (Val.Bool b)
+| Term.arith op t₁ t₂, env =>
+  match op with
+  | ArithBinOp.add =>
+    match eval t₁ env, eval t₂ env with
+    | some (Val.Field n₁), some (Val.Field n₂) => some (Val.Field (n₁ + n₂))
+    | _, _ => none
+  | ArithBinOp.sub =>
+    match eval t₁ env, eval t₂ env with
+    | some (Val.Field n₁), some (Val.Field n₂) => some (Val.Field (n₁ - n₂))
+    | _, _ => none
+  | ArithBinOp.mul =>
+    match eval t₁ env, eval t₂ env with
+    | some (Val.Field n₁), some (Val.Field n₂) => some (Val.Field (n₁ * n₂))
+    | _, _ => none
+| Term.boolB op t₁ t₂, env =>
+  match op with
+  | BoolBinOp.and =>
+    match eval t₁ env, eval t₂ env with
+    | some (Val.Bool b₁), some (Val.Bool b₂) => some (Val.Bool (b₁ && b₂))
+    | _, _ => none
+  | BoolBinOp.or  =>
+    match eval t₁ env, eval t₂ env with
+    | some (Val.Bool b₁), some (Val.Bool b₂) => some (Val.Bool (b₁ || b₂))
+    | _, _ => none
+| Term.eq t₁ t₂, env =>
+  match eval t₁ env, eval t₂ env with
+  | some v₁, some v₂ => some (Val.Bool (eqVal v₁ v₂))
+  | _, _ => none
+| Term.not t, env =>
+  match eval t env with
+  | some (Val.Bool b) => some (Val.Bool (!b))
+  | _ => none
+| Term.ifz c t₁ t₂, env =>
+  match eval c env with
+  | some (Val.Field n) =>
+      if n ≠ 0 then eval t₁ env else eval t₂ env
+  | _ => none
+| Term.lett x t₁ t₂, env =>
+  match eval t₁ env with
+  | some v =>
+    let env' := env.insert x v
+    eval t₂ env'
+  | _ => none
+| Term.assert t, env =>
+  match eval t env with
+  | some (Val.Bool true) => some Val.Unit
+  | _ => none
+| Term.inSet t ts, env =>
+  match eval t env with
+  | some (Val.Field x) => some (Val.Bool (x ∈ ts.toFinset))
+  | _ => none
+| Term.seq t₁ t₂, env =>
+  match eval t₁ env with
+  | some Val.Unit => eval t₂ env
+  | _ => none

@@ -9,23 +9,25 @@ The syntax of our expression language.
 The language is a simple expression language with variables, literals, arithmetic and boolean operations,
 and a few control flow constructs.
 -/
+
+inductive ArithBinOp where
+| add | sub | mul
+deriving Inhabited, BEq, Repr
+inductive BoolBinOp where
+| and | or
+deriving Inhabited, BEq, Repr
+
 inductive Term (f : Type u) [Field f] where
 | var : String → Term f
 | lit : f → Term f
 | bool : Bool → Term f
-| add : Term f → Term f → Term f
-| mul : Term f → Term f → Term f
-| sub : Term f → Term f → Term f
+| arith : ArithBinOp → Term f → Term f → Term f
+| boolB : BoolBinOp  → Term f → Term f → Term f
 | eq  : Term f → Term f → Term f
-| and : Term f → Term f → Term f
-| or  : Term f → Term f → Term f
 | not : Term f → Term f
 | lett : String → Term f → Term f → Term f
 | ifz : Term f → Term f → Term f → Term f
--- | hash1 : Term f → Term f
--- | hash2 : Term f → Term f → Term f
 | inSet : Term f → List f → Term f
--- statements/commands
 | assert : Term f → Term f
 | seq : Term f → Term f → Term f
 deriving Inhabited, BEq
@@ -33,24 +35,18 @@ deriving Inhabited, BEq
 /-
 Function to compute the free variables of a term.
 -/
-def freeVars {f} [Field f] (t : Term f) : Finset String := match t with
-  | Term.lit _        => ∅
-  | Term.bool _       => ∅
-  | Term.var x        => {x}
-  | Term.add t₁ t₂    => freeVars t₁ ∪ freeVars t₂
-  | Term.sub t₁ t₂    => freeVars t₁ ∪ freeVars t₂
-  | Term.mul t₁ t₂    => freeVars t₁ ∪ freeVars t₂
-  | Term.eq t₁ t₂     => freeVars t₁ ∪ freeVars t₂
-  | Term.and t₁ t₂    => freeVars t₁ ∪ freeVars t₂
-  | Term.or t₁ t₂     => freeVars t₁ ∪ freeVars t₂
-  | Term.not t        => freeVars t
-  | Term.ifz c t₁ t₂  => freeVars c ∪ freeVars t₁ ∪ freeVars t₂
-  | Term.lett x t₁ t₂ => freeVars t₁ ∪ (freeVars t₂ \ {x})
-  | Term.assert t      => freeVars t
-  -- | Term.hash1 t        => freeVars t
-  -- | Term.hash2 t₁ t₂   => freeVars t₁ ∪ freeVars t₂
-  | Term.inSet t _    => freeVars t
-  | Term.seq t₁ t₂     => freeVars t₁ ∪ freeVars t₂
+def freeVars {f} [Field f] : Term f → Finset String
+  | .var x          => {x}
+  | .lit _ | .bool _ => ∅
+  | .arith _ t₁ t₂ => freeVars t₁ ∪ freeVars t₂
+  | .boolB _ t₁ t₂ => freeVars t₁ ∪ freeVars t₂
+  | .seq  t₁ t₂     => freeVars t₁ ∪ freeVars t₂
+  | .eq   t₁ t₂     => freeVars t₁ ∪ freeVars t₂
+  | .not t          => freeVars t
+  | .ifz c t₁ t₂    => freeVars c ∪ freeVars t₁ ∪ freeVars t₂
+  | .lett x t₁ t₂   => freeVars t₁ ∪ (freeVars t₂ \ {x})
+  | .assert t       => freeVars t
+  | .inSet t _      => freeVars t
 
 mutual
 /--
@@ -73,16 +69,25 @@ def Env.insert {f : Type} [Field f] (x : String) (v : Val f) (ρ : Env f) : Env 
 def wellScoped {f} [Field f] (t : Term f) (env : Env f) : Prop :=
   ∀ x ∈ freeVars t, ∃ v, env.lookup x = some v ∧ v ≠ Val.Unit
 
-notation "<{" e:100 "}>" => e
-infixl:99 " ⊕ " => Term.add
-infixl:99 " ⊗ " => Term.mul
-infixl:99 " - " => Term.sub
-infixl:99 " =-= " => Term.eq
-infixl:99 " && " => Term.and
-infixl:99 " || " => Term.or
-prefix:100 "∼" => Term.not
-notation "ifz" t₁ " then " t₂ " else " t₃ => Term.ifz t₁ t₂ t₃
-infixl:99 " ; " => Term.seq
-infixl:99 " inn " => Term.inSet
+namespace Term
+  variable {f} [Field f]
+  abbrev add (a b : Term f) : Term f := .arith .add a b
+  abbrev sub (a b : Term f) : Term f := .arith .sub a b
+  abbrev mul (a b : Term f) : Term f := .arith .mul a b
+  abbrev and (a b : Term f) : Term f := .boolB .and a b
+  abbrev or  (a b : Term f) : Term f := .boolB .or  a b
+end Term
+
+notation " <{ " e:100 " }> " => e
+infixl:65 " .+. " => Term.add
+infixl:65 " ⊗ " => Term.mul
+infixl:65 " .-. " => Term.sub
+infix:50  " =-= " => Term.eq
+infixr:40 " && " => Term.and
+infixr:35 " || " => Term.or
+infixl:70 " ; " => Term.seq
+infix:60 " inn " => Term.inSet
+notation "ifz` " t₁:100 " then` " t₂:100 " else`" t₃:100 => Term.ifz t₁ t₂ t₃
 prefix:100 "ASSERT " => Term.assert
-notation "let " x " := " t " in " b => Term.lett x t b
+prefix:100 "~ " => Term.not
+notation "LET " x " := " t " in " b => Term.lett x t b
