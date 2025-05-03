@@ -1,9 +1,15 @@
+#!/usr/bin/env python3
 from typing import Any
 from dataclasses import dataclass
+from pathlib import Path
 import re
+import sys
+import textwrap
 
 # ------------------------  TOKENS  --------------------------
+
 @dataclass
+
 class Token:
     typ: str   # KEYWORD, IDENT, NUMBER, OP, DELIM
     val: str
@@ -40,56 +46,89 @@ def tokenize(src: str) -> list[Token]:
     return toks
 
 # ------------------------  AST  -----------------------------
+
 @dataclass
-class TNum:    val: str
+
+class TNum:
+    val: str
+
 @dataclass
-class TBool:   val: bool
+
+class TBool:
+    val: bool
+
 @dataclass
-class TVar:    name: str
+
+class TVar:
+    name: str
+
 @dataclass
-class TBin:    
+
+class TBin:
     op: str
     left: Any
     right: Any
+
 @dataclass
-class TNot:    
+
+class TNot:
     expr: Any
+
 @dataclass
-class TLet:    
+
+class TLet:
     name: str
     rhs: Any
     body: Any
+
 @dataclass
-class TAssert: 
+
+class TAssert:
     expr: Any
+
 @dataclass
+
 class TSeq:
     first: Any
     second: Any
+
 @dataclass
-class TIfz:    
+
+class TIfz:
     cond: Any
     tcase: Any
     fcase: Any
 
 # ---------------------  PARSER  -----------------------------
+
 class Parser:
-    def __init__(self, toks): self.toks, self.i = toks, 0
-    def peek(self):  return self.toks[self.i] if self.i < len(self.toks) else None
-    def advance(self): self.i += 1
+    def __init__(self, toks: list[Token]):
+        self.toks = toks
+        self.i = 0
+
+    def peek(self):
+        return self.toks[self.i] if self.i < len(self.toks) else None
+
+    def advance(self):
+        self.i += 1
+
     def match(self, typ, val=None):
         tok = self.peek()
         if tok and tok.typ == typ and (val is None or tok.val == val):
-            self.advance(); return tok
+            self.advance()
+            return tok
         return None
+
     def expect(self, typ, val=None):
         tok = self.match(typ, val)
-        if not tok: raise SyntaxError(f"Expected {val or typ}")
+        if not tok:
+            raise SyntaxError(f"Expected {val or typ}")
         return tok
 
     def parse(self): 
         expr = self.parse_let()
-        if self.peek(): raise SyntaxError("Trailing tokens")
+        if self.peek():
+            raise SyntaxError("Trailing tokens")
         return expr
 
     def parse_let(self):
@@ -180,3 +219,92 @@ class Parser:
             self.expect("DELIM", ")")
             return e
         raise SyntaxError("Unexpected token")
+
+# ------------------  Lean code generation  ------------------
+
+def to_lean(t) -> str:
+    match t:
+        case TNum(v):      return f"(Term.lit {v})"
+        case TBool(b):     return f"(Term.bool {'true' if b else 'false'})"
+        case TVar(n):      return f'(Term.var "{n}")'
+        case TBin(op, l, r):
+            table = {
+                "+": "ArithBinOp.add", "-": "ArithBinOp.sub", "*": "ArithBinOp.mul",
+                "&&": "BoolBinOp.and", "||": "BoolBinOp.or", "==": None
+            }
+            if op == "==":
+                return f"(Term.eq {to_lean(l)} {to_lean(r)})"
+            elif op in ["&&", "||"]:
+                return f"(Term.boolB {table[op]} {to_lean(l)} {to_lean(r)})"
+            else:
+                return f"(Term.arith {table[op]} {to_lean(l)} {to_lean(r)})"
+        case TNot(e):      return f"(Term.not {to_lean(e)})"
+        case TLet(n, r, b):return f'(Term.lett "{n}" {to_lean(r)} {to_lean(b)})'
+        case TAssert(e):   return f"(Term.assert {to_lean(e)})"
+        case TSeq(a, b):   return f"(Term.seq {to_lean(a)} {to_lean(b)})"
+        case TIfz(c, t, e):return f"(Term.ifz {to_lean(c)} {to_lean(t)} {to_lean(e)})"
+        case _: raise ValueError("unknown AST node")
+
+
+def emit_lean(code: str, stem: str):
+    path = Path("Parsed.lean")
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    if not path.exists():
+        header = textwrap.dedent("""\
+            import ZkLeanCompiler.Compile
+            import Mathlib.Algebra.Field.Rat
+            import Mathlib.Data.Rat.Defs
+            open Term
+
+            instance hash : Hashable ℚ where
+              hash q :=
+                let n := q.num.natAbs
+                let d := q.den
+                (n + d).toUInt64
+
+            instance witness : Witnessable ℚ (ZKExpr ℚ) where
+              witness := do
+                let st ← get
+                let id := st.allocated_witness_count
+                set { st with allocated_witness_count := id + 1 }
+                pure (ZKExpr.WitnessVar id)
+
+            instance : JoltField ℚ where
+              toField := inferInstance
+              toBEq := inferInstance
+              toToString := inferInstance
+              toInhabited := inferInstance
+              toWitnessable := witness
+              toHashable := hash
+              eq_of_beq := by
+                intros a b h
+                simp only [BEq.beq, decide_eq_true_eq] at h
+                exact h
+              rfl := by
+                intro a
+                simp only [BEq.beq, decide_eq_true_eq]
+
+        """)
+        path.write_text(header)
+
+    with open(path, "a") as f:
+        f.write(f"\ndef parsedProg_{stem} : Term ℚ := {code}\n")
+    print(f"Appended parsedProg_{stem} to Parsed.lean")
+
+
+# ------------------  CLI  ------------------
+
+def main():
+    if len(sys.argv) != 2:
+        print("Usage: zkparse.py examples/test.zk"); sys.exit(1)
+    src_path = Path(sys.argv[1])
+    stem = src_path.stem
+    src = src_path.read_text()
+    toks = tokenize(src)
+    ast = Parser(toks).parse()
+    lean_code = to_lean(ast)
+    emit_lean(lean_code, stem)
+
+if __name__ == "__main__":
+    main()

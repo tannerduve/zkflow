@@ -20,6 +20,7 @@ inductive ZKExpr (f: Type) where
   | Lookup: (table: ComposedLookupTable f 16 4) -> (arg1: ZKExpr f) -> (arg2: ZKExpr f) -> ZKExpr f -- TODO fix these 16,4
 infix:50    " === " => ZKExpr.Eq
 
+
 instance [Inhabited f]: Inhabited (ZKExpr f) where
   default := ZKExpr.Literal default
 
