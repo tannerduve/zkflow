@@ -102,12 +102,51 @@ These include properties like:
 - Soundness of boolean assertions
 - Correctness of basic arithmetic and logical compilation
 - Witness consistency during compilation steps
+- (Kleisli) homomorphism theorems for languages-as-term-algebras
 
 **Progress**:  
 The proof is complete for basic cases (variables, literals, booleans) and partial for arithmetic and logical operations.  
 A few hundred lines of proof are complete. The remaining control-flow cases (`ifz`, `inSet`, sequencing) are straightforward extensions.
 
 ---
+## Circuit Visualization Pipeline
+
+zkFlow supports automatic visualization of compiled ZK circuits as directed graphs.
+
+### How to Use
+
+1. Write a `.zk` program, e.g.:
+
+    ```zk
+    let x = 2 + 3 in
+    assert(x * 2 == 10)
+    ```
+
+2. Compile and generate constraints:
+
+    ```bash
+    python3 ZkLeanCompiler/Frontend/compile_to_circuit.py ZkLeanCompiler/Frontend/examples/test.zk
+    ```
+
+3. Visualize the circuit:
+
+    ```bash
+    python3 ZkLeanCompiler/Frontend/visualize_graph.py
+    ```
+
+4. The rendered circuit will be saved as `circuit_graph.png`.
+
+### Output Description
+
+- Witnesses are shown as light blue nodes (`w0`, `w1`, etc).
+- Arithmetic and logical operations are yellow boxes (`add`, `mul`, `eq`, etc).
+- Final output is a green octagon labeled `output`.
+- Each constraint is visualized via orange diamonds representing equality.
+
+### Pipeline Summary
+
+`.zk` program → `Parsed.lean` → `out.json` → `circuit_graph.png`
+
 
 ## Future Work
 
