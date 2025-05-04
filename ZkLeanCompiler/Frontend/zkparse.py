@@ -82,9 +82,9 @@ class TLet:
     body: Any
 
 @dataclass
-
 class TAssert:
-    expr: Any
+    cond: Any
+    body: Any
 
 @dataclass
 
@@ -145,7 +145,7 @@ class Parser:
         e = self.parse_assert()
         while self.match("DELIM", ";"):
             rhs = self.parse_assert()
-            e   = TSeq(e, rhs)
+            e = TSeq(e, rhs)
         return e
 
     def parse_assert(self):
@@ -153,8 +153,12 @@ class Parser:
             self.expect("DELIM", "(")
             e = self.parse_let()
             self.expect("DELIM", ")")
-            return TAssert(e)
+            self.expect("KEYWORD", "then")   
+            body = self.parse_let()            
+            return TAssert(e, body)
+  
         return self.parse_if()
+
 
     def parse_if(self):
         if self.match("KEYWORD", "if"):
@@ -240,7 +244,7 @@ def to_lean(t) -> str:
                 return f"(Term.arith {table[op]} {to_lean(l)} {to_lean(r)})"
         case TNot(e):      return f"(Term.not {to_lean(e)})"
         case TLet(n, r, b):return f'(Term.lett "{n}" {to_lean(r)} {to_lean(b)})'
-        case TAssert(e):   return f"(Term.assert {to_lean(e)})"
+        case TAssert(c, b): return f"(Term.assert {to_lean(c)} {to_lean(b)})"
         case TSeq(a, b):   return f"(Term.seq {to_lean(a)} {to_lean(b)})"
         case TIfz(c, t, e):return f"(Term.ifz {to_lean(c)} {to_lean(t)} {to_lean(e)})"
         case _: raise ValueError("unknown AST node")

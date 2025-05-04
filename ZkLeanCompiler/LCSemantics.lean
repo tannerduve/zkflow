@@ -56,9 +56,10 @@ inductive Eval (f : Type) [Field f] [BEq f] : Term f → Env f → Val f → Pro
     Eval f t₁ env (Val.Bool false) →
     Eval f t₃ env v →
     Eval f (ifz` t₁ then` t₂ else` t₃) env v
-| assert : ∀ (env : Env f) (t : Term f),
-    Eval f t env (Val.Bool true) →
-    Eval f (ASSERT t) env Val.Unit
+| assert : ∀ (env : Env f) (t₁ t₂ : Term f) (v : Val f),
+    Eval f t₁ env (Val.Bool true) →
+    Eval f t₂ env v →
+    Eval f (Term.assert t₁ t₂) env v
 | inSet_true : ∀ (env : Env f) (t : Term f) (ts : List f) (x : f),
     Eval f t env (Val.Field x) →
     x ∈ ts →
@@ -67,8 +68,8 @@ inductive Eval (f : Type) [Field f] [BEq f] : Term f → Env f → Val f → Pro
     Eval f t env (Val.Field x) →
     x ∉ ts →
     Eval f (t inn ts) env (Val.Bool false)
-| seq : ∀ (env : Env f) (t₁ t₂ : Term f) (v : Val f),
-    Eval f t₁ env Val.Unit →
+| seq : ∀ (env : Env f) (t₁ t₂ : Term f) (v v' : Val f),
+    Eval f t₁ env v' →
     Eval f t₂ env v →
     Eval f (t₁ ; t₂) env v
 
@@ -124,15 +125,16 @@ def eval {f} [Field f] [BEq f] [DecidableEq f] : Term f → Env f → Option (Va
     let env' := env.insert x v
     eval t₂ env'
   | _ => none
-| Term.assert t, env =>
-  match eval t env with
-  | some (Val.Bool true) => some Val.Unit
+| Term.assert t₁ t₂, env =>
+  match eval t₁ env with
+  | some (Val.Bool true) => eval t₂ env
+  | some (Val.Bool false) => none
   | _ => none
 | Term.inSet t ts, env =>
   match eval t env with
   | some (Val.Field x) => some (Val.Bool (x ∈ ts.toFinset))
   | _ => none
 | Term.seq t₁ t₂, env =>
-  match eval t₁ env with
-  | some Val.Unit => eval t₂ env
-  | _ => none
+  match eval t₁ env, eval t₂ env with
+  | some _, some v₂ => some v₂
+  | _, _ => none

@@ -71,6 +71,13 @@ def lake_build():
     ):
         print("Lean build failed"); sys.exit(1)
 
+def lake_run():
+    if subprocess.call(
+        ["lake", "exe", "ZkLeanCompiler.Frontend.CompileZkProgram"],
+        cwd=REPO_ROOT
+    ):
+        print("Execution failed"); sys.exit(1)
+
 # --------------------------------------------------------------------
 # 4.  CLI wrapper
 # --------------------------------------------------------------------
@@ -83,11 +90,12 @@ def main():
     if not zk_file.exists():
         print("No such .zk file"); sys.exit(1)
 
-    stem = zk_file.stem                     #  foo.zk  → “foo”
+    stem = zk_file.stem  # foo.zk → “foo”
 
     run_parser(str(zk_file))
     write_driver(stem)
-    lake_build()                            # produces out.json
+    lake_build()
+    lake_run()  # <-- this runs the program, generating out.json
 
     out = REPO_ROOT / "ZkLeanCompiler/Frontend/out.json"
     if out.exists():

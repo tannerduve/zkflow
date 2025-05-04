@@ -27,7 +27,7 @@ inductive Term (f : Type u) [Field f] where
 | lett : String → Term f → Term f → Term f
 | ifz : Term f → Term f → Term f → Term f
 | inSet : Term f → List f → Term f
-| assert : Term f → Term f
+| assert : Term f → Term f → Term f
 | seq : Term f → Term f → Term f
 deriving Inhabited, BEq
 
@@ -44,7 +44,7 @@ def freeVars {f} [Field f] : Term f → Finset String
   | .not t          => freeVars t
   | .ifz c t₁ t₂    => freeVars c ∪ freeVars t₁ ∪ freeVars t₂
   | .lett x t₁ t₂   => freeVars t₁ ∪ (freeVars t₂ \ {x})
-  | .assert t       => freeVars t
+  | .assert t₁ t₂      => freeVars t₁ ∪ freeVars t₂
   | .inSet t _      => freeVars t
 
 mutual
@@ -87,6 +87,6 @@ infixr:35 " || " => Term.or
 infixl:70 " ; " => Term.seq
 infix:60 " inn " => Term.inSet
 notation "ifz` " t₁:100 " then` " t₂:100 " else`" t₃:100 => Term.ifz t₁ t₂ t₃
-prefix:100 "ASSERT " => Term.assert
+notation "ASSERT " t₁:100 " then " t₂:100 => Term.assert t₁ t₂
 prefix:100 "~ " => Term.not
 notation "LET " x " := " t " in " b => Term.lett x t b

@@ -19,5 +19,6 @@ lean_lib «Frontend» where
   -- Optional: specify where the source files live
   srcDir := "ZkLeanCompiler/Frontend"
 
-lean_exe compileZkProgram where
+@[default_target]
+lean_exe ZkLeanCompiler.Frontend.CompileZkProgram where
   root := `ZkLeanCompiler.Frontend.CompileZkProgram

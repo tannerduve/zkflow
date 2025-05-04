@@ -121,11 +121,11 @@ def compileExpr {f} [JoltField f] [DecidableEq f] (t : Term f) (env : Env f) : Z
     assertIsBool b                                               -- b ∈ {0,1}
      -- 5) return Boolean indicator
     return b
-  | Term.assert t => do
-    let x ← compileExpr t env
-    assertIsBool x
-    constrainEq x (ZKExpr.Literal 1)
-    return (ZKExpr.Literal 0) -- dummy value
+  | Term.assert t₁ t₂ => do
+    let cond ← compileExpr t₁ env
+    assertIsBool cond
+    constrainEq cond (ZKExpr.Literal 1)
+    compileExpr t₂ env
   | Term.seq t1 t2 => do
     let _ ← compileExpr t1 env
     compileExpr t2 env

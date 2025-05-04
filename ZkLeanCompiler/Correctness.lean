@@ -351,22 +351,39 @@ lemma wellScoped_of_seq_wellScoped (t₁ t₂ : Term F) (env : Env F) :
   specialize h₂ x h₄
   exact h₂
 
-lemma wellScoped_of_assert_wellScoped (t : Term F) (env : Env F) :
-  wellScoped t env ↔ wellScoped (Term.assert t) env := by
+lemma wellScoped_of_assert_wellScoped (t₁ t₂ : Term F) (env : Env F) :
+  ((wellScoped t₁ env) ∧ (wellScoped t₂ env)) ↔ wellScoped (Term.assert t₁ t₂) env := by
   constructor
   intro h
   simp [wellScoped] at h
   intro x xfree
   unfold freeVars at xfree
-  specialize h x xfree
-  simp
-  exact h
+  simp [Set.mem_union] at xfree
+  cases' xfree with h₁ h₂
+  cases' h with lt rt
+  specialize lt x h₁
+  push_neg at lt
+  exact lt
+  cases' h with lt rt
+  specialize rt x h₂
+  push_neg at rt
+  exact rt
   intro h
-  simp [wellScoped] at h ⊢
-  intro x xfree
-  simp [freeVars] at h
-  specialize h x xfree
-  exact h
+  constructor
+  · intro x xfree
+    simp [wellScoped] at h
+    unfold freeVars at h
+    simp [Set.mem_union] at h
+    specialize h x (Or.inl xfree)
+    push_neg at h
+    exact h
+  · intro x xfree
+    simp [wellScoped] at h
+    unfold freeVars at h
+    simp [Set.mem_union] at h
+    specialize h x (Or.inr xfree)
+    push_neg at h
+    exact h
 
 lemma wellScoped_of_inSet_wellScoped (t : Term F) (ts : List F) (env : Env F) :
   wellScoped t env ↔ wellScoped (Term.inSet t ts) env := by
