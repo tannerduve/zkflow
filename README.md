@@ -13,7 +13,7 @@ The compiler is written in Lean and several properties have been formally verifi
 - **Write small programs** using high-level constructs (arithmetic, booleans, if-then-else, etc.).
 - **Compile automatically** into low-level constraint systems suitable for ZK proof backends.
 - **Formally prove** that the compiler preserves semantics: the meaning of a program matches the meaning of the generated constraint system.
-
+- **Generate visualized circuits** produced by the compiler
 ---
 
 ## Language Overview
