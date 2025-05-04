@@ -9,7 +9,6 @@ The syntax of our expression language.
 The language is a simple expression language with variables, literals, arithmetic and boolean operations,
 and a few control flow constructs.
 -/
-
 inductive ArithBinOp where
 | add | sub | mul
 deriving Inhabited, BEq, Repr

@@ -14,3 +14,10 @@ require mathlib from git
 @[default_target]
 lean_lib «ZkLeanCompiler» where
   -- add any library configuration options here
+
+lean_lib «Frontend» where
+  -- Optional: specify where the source files live
+  srcDir := "ZkLeanCompiler/Frontend"
+
+lean_exe compileZkProgram where
+  root := `ZkLeanCompiler.Frontend.CompileZkProgram

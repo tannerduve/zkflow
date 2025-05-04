@@ -1,0 +1,49 @@
+digraph {
+	"lit:0" [label="lit:0" fillcolor=lightgray shape=circle style=filled]
+	output [label=output fillcolor=lightgreen shape=octagon style=filled]
+	lit:0 -> output
+	w0 [label=w0 fillcolor=lightblue shape=doublecircle style=filled]
+	"lit:1" [label="lit:1" fillcolor=lightgray shape=circle style=filled]
+	assert_0 [label="==" fillcolor=orange shape=diamond style=filled]
+	w0 -> assert_0
+	lit:1 -> assert_0
+	w0 [label=w0 fillcolor=lightblue shape=doublecircle style=filled]
+	"lit:1" [label="lit:1" fillcolor=lightgray shape=circle style=filled]
+	w0 [label=w0 fillcolor=lightblue shape=doublecircle style=filled]
+	sub_0 [label=sub fillcolor=lightyellow shape=box style=filled]
+	lit:1 -> sub_0
+	w0 -> sub_0
+	mul_1 [label=mul fillcolor=lightyellow shape=box style=filled]
+	w0 -> mul_1
+	sub_0 -> mul_1
+	"lit:0" [label="lit:0" fillcolor=lightgray shape=circle style=filled]
+	assert_1 [label="==" fillcolor=orange shape=diamond style=filled]
+	mul_1 -> assert_1
+	lit:0 -> assert_1
+	w0 [label=w0 fillcolor=lightblue shape=doublecircle style=filled]
+	"lit:1" [label="lit:1" fillcolor=lightgray shape=circle style=filled]
+	w0 [label=w0 fillcolor=lightblue shape=doublecircle style=filled]
+	sub_2 [label=sub fillcolor=lightyellow shape=box style=filled]
+	lit:1 -> sub_2
+	w0 -> sub_2
+	mul_3 [label=mul fillcolor=lightyellow shape=box style=filled]
+	w0 -> mul_3
+	sub_2 -> mul_3
+	"lit:0" [label="lit:0" fillcolor=lightgray shape=circle style=filled]
+	assert_2 [label="==" fillcolor=orange shape=diamond style=filled]
+	mul_3 -> assert_2
+	lit:0 -> assert_2
+	w0 [label=w0 fillcolor=lightblue shape=doublecircle style=filled]
+	"lit:1" [label="lit:1" fillcolor=lightgray shape=circle style=filled]
+	"lit:1" [label="lit:1" fillcolor=lightgray shape=circle style=filled]
+	sub_4 [label=sub fillcolor=lightyellow shape=box style=filled]
+	lit:1 -> sub_4
+	lit:1 -> sub_4
+	mul_5 [label=mul fillcolor=lightyellow shape=box style=filled]
+	w0 -> mul_5
+	sub_4 -> mul_5
+	"lit:0" [label="lit:0" fillcolor=lightgray shape=circle style=filled]
+	assert_3 [label="==" fillcolor=orange shape=diamond style=filled]
+	mul_5 -> assert_3
+	lit:0 -> assert_3
+}

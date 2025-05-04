@@ -31,5 +31,4 @@ instance : JoltField ℚ where
     intro a
     simp only [BEq.beq, decide_eq_true_eq]
 
-
-def parsedProg_test : Term ℚ := (Term.lett "x" (Term.arith ArithBinOp.add (Term.lit 2) (Term.lit 3)) (Term.assert (Term.eq (Term.arith ArithBinOp.mul (Term.var "x") (Term.lit 2)) (Term.lit 10))))
+def parsedProg_assert : Term ℚ := (Term.assert (Term.eq (Term.lit 1) (Term.lit 1)))

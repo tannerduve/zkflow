@@ -102,13 +102,14 @@ These include properties like:
 - Soundness of boolean assertions
 - Correctness of basic arithmetic and logical compilation
 - Witness consistency during compilation steps
-- (Kleisli) homomorphism theorems for languages-as-term-algebras
+- (Kleisli) homomorphism theorem where languages are viewed as term algebras
 
 **Progress**:  
 The proof is complete for basic cases (variables, literals, booleans) and partial for arithmetic and logical operations.  
 A few hundred lines of proof are complete. The remaining control-flow cases (`ifz`, `inSet`, sequencing) are straightforward extensions.
 
 ---
+
 ## Circuit Visualization Pipeline
 
 zkFlow supports automatic visualization of compiled ZK circuits as directed graphs.
