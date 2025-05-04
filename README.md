@@ -138,11 +138,10 @@ zkFlow supports automatic visualization of compiled ZK circuits.
 
 ### How to Use
 
-1. Write a `.zk` program, e.g.:
+1. Write a `.zk` program, ie. a file with extension .zk with a single program such as the following e.g.:
 
     ```zk
-    let x = 2 + 3 in
-    assert(x * 2 == 10)
+    let x = 2 + 3 in assert(x * 2 == 10)
     ```
 
 2. Compile and generate constraints:
@@ -178,3 +177,16 @@ zkFlow supports automatic visualization of compiled ZK circuits.
 - Extend language with tuples, maps, and Merkle tree access.
 - Support simple loops and bounded iteration.
 - Integrate with zk backends (e.g., Halo2, Nova) for full proof generation.
+## Installation
+
+1. Ensure you have Lean 4 installed. You can install it via [elan](https://leanprover-community.github.io/get_started.html).
+
+2. Clone the repository:
+
+   ```bash
+   git clone https://github.com/your-username/zk_lean_compiler.git
+   cd zk_lean_compiler
+3. Fetch mathlib and other dependencies
+   `lake exe cache get`
+4. Run `lake build`
+5. To compile a .zk program into a circuti, run `python3 ZkLeanCompiler/Frontend/compile_to_circuit.py path/to/example.zk`
