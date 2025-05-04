@@ -122,7 +122,7 @@ The core correctness theorem (`compileExpr_correct`) ensures semantic preservati
 - `wellScoped_*`: Prove that scoping is preserved across all term constructors (`not`, `arith`, `boolB`, `eq`, `ifz`, `lett`, `seq`, `assert`, `inSet`)
 - `weakening`: Shows that inserting new bindings into the environment doesn’t affect existing variable lookup.
 
-### 💡 Homomorphism Theorems
+### Homomorphism Theorems
 
 - `homomorphism_theorem_arith`: Compiling an arithmetic operation distributes over its subterms—i.e., the compiler is a homomorphism for `Term.arith`.
 - `homomorphism_theorem_bool`: Similarly, the compiler distributes over boolean operations, preserving structure and meaning for `Term.boolB`.
