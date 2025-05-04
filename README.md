@@ -49,7 +49,7 @@ The resulting constraint system can be passed directly into a ZK backend to gene
 
 ## File Overview
 
-### Files Original to This Project:
+### Core Project Files (Lean):
 
 - **`LCSyntax.lean`**  
   Defines the syntax of the source language (`Term`), the structure of environments, free variable computation, and the definition of values.
@@ -68,16 +68,29 @@ The resulting constraint system can be passed directly into a ZK backend to gene
 
 ---
 
+### Frontend and Visualization Tools (Python):
+
+- **`zkparse.py`**  
+  Parses `.zk` programs into fully desugared `Term` syntax and writes out a Lean file `Parsed.lean` that defines the program.
+
+- **`compile_to_circuit.py`**  
+  Runs the full pipeline: parses a `.zk` file, invokes Lean to compile it, and emits `out.json` representing the resulting ZK circuit.
+
+- **`visualize_graph.py`**  
+  Visualizes the compiled ZK circuit stored in `out.json` as a directed graph, saved as `circuit_graph.png`.
+
+---
+
 ### Files Imported from zkLean:
 
 - **`AST.lean`**  
-  Defines the `ZKExpr` datatype: a low-level language of field expressions used to represent circuits. Includes literals, arithmetic operations, equality checks, and lookup gadgets.
+  Defines the `ZKExpr` datatype: a low-level language of field expressions used to represent circuits.
 
 - **`Basic.lean`**  
   Provides basic operations over fields and field elements, including coercions, equality, and small helper structures.
 
 - **`Builder.lean`**  
-  Defines the `ZKBuilder` monad and state — a constraint generation monad that tracks allocated witnesses and emitted constraints during compilation.
+  Defines the `ZKBuilder` monad and state — a constraint generation monad that tracks allocated witnesses and emitted constraints.
 
 - **`LookupTable.lean`**  
   Defines structures for composed lookup tables, subtables, and their evaluation semantics. Supports complex lookup operations needed for efficient circuit design.
@@ -96,23 +109,25 @@ The key correctness theorem (`compileExpr_correct`) states:
 > and the compiled expression evaluates to the same value `v` under that witness.
 
 Along the way, several technical lemmas about constraint semantics, witness structure, and boolean handling have been proven.  
-These include properties like:
+These include:
 
-- Distribution of constraint satisfaction over lists
+- Distribution of constraint satisfaction over list append
 - Soundness of boolean assertions
-- Correctness of basic arithmetic and logical compilation
-- Witness consistency during compilation steps
-- (Kleisli) homomorphism theorem where languages are viewed as term algebras
+- Correctness of arithmetic and logical compilation
+- Witness consistency during compilation
+- Kleisli homomorphism theorem viewing languages as term algebras
+- Constraint semantics are invariant under permutation of constraints
+- Suffix irrelevance of witness vectors: evaluating a compiled expression does not depend on entries beyond its referenced witness indices.
 
 **Progress**:  
-The proof is complete for basic cases (variables, literals, booleans) and partial for arithmetic and logical operations.  
-A few hundred lines of proof are complete. The remaining control-flow cases (`ifz`, `inSet`, sequencing) are straightforward extensions.
+The proof is complete for base cases (variables, literals, booleans) and partially complete for arithmetic/logical ops.  
+Control-flow cases like `ifz`, `inSet`, and sequencing are pending.
 
 ---
 
 ## Circuit Visualization Pipeline
 
-zkFlow supports automatic visualization of compiled ZK circuits as directed graphs.
+zkFlow supports automatic visualization of compiled ZK circuits.
 
 ### How to Use
 
@@ -135,23 +150,24 @@ zkFlow supports automatic visualization of compiled ZK circuits as directed grap
     python3 ZkLeanCompiler/Frontend/visualize_graph.py
     ```
 
-4. The rendered circuit will be saved as `circuit_graph.png`.
+4. The rendered image is saved as `circuit_graph.png`.
 
 ### Output Description
 
-- Witnesses are shown as light blue nodes (`w0`, `w1`, etc).
-- Arithmetic and logical operations are yellow boxes (`add`, `mul`, `eq`, etc).
-- Final output is a green octagon labeled `output`.
-- Each constraint is visualized via orange diamonds representing equality.
+- Light blue circles = witnesses (`w0`, `w1`, ...)
+- Yellow rectangles = operations (`add`, `mul`, `eq`, ...)
+- Green octagon = final output
+- Orange diamonds = constraints (equalities)
 
 ### Pipeline Summary
 
 `.zk` program → `Parsed.lean` → `out.json` → `circuit_graph.png`
 
+---
 
 ## Future Work
 
-- Add hashing as a language primitive for supporting more advanced cryptographic protocols.
-- Add tuple types, map types, or Merkle tree operations for more expressive ZK computations.
-- Extend to simple bounded loops for larger programs.
-- Connect the output constraint system to real ZK proof backends (e.g., Halo2, Nova) for actual proof generation.
+- Add cryptographic primitives: hashing, commitments, etc.
+- Extend language with tuples, maps, and Merkle tree access.
+- Support simple loops and bounded iteration.
+- Integrate with zk backends (e.g., Halo2, Nova) for full proof generation.
