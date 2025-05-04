@@ -26,7 +26,7 @@ The source language (called `Term`) includes:
 - Conditionals (`ifz` — if-then-else)
 - Set membership tests (`inSet`)
 - Let-bindings (`let x = t1 in t2`)
-- Assertions (`assert t`)
+- Assertions (`assert t1 then t1`)
 - Sequencing of programs (`t1 ; t2`)
 
 There are no functions or recursion — the language is deliberately small, static, and designed for easy compilation into circuit constraints.
