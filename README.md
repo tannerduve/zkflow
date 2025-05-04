@@ -40,9 +40,6 @@ Each source program is compiled into a ZK expression wrapped in a `ZkBuilder` st
 - A **compiled expression** (`ZKExpr`) representing the program’s output (the value)
 - A **constraint system**: a list of polynomial equalities over the field (the state)
 - A **witness**: an assignment of field elements satisfying the constraints (the state)
-
-The compiler internally allocates **witness variables** as needed, enforces constraints through simple rewriting, and preserves the structure of computation.
-
 ---
 
 ## File Overview
