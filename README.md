@@ -1,6 +1,6 @@
 # zkFlow
 
-**zkFlow** is a small language for writing simple programs that automatically compile into zero-knowledge proof circuits.  
+**zkFlow** is a language for writing simple programs that compile into zero-knowledge proof circuits.  
 It enables users to express basic arithmetic, boolean logic, and control-flow computations over a finite field, and automatically generate the corresponding arithmetized circuits needed for proof systems such as zk-SNARKs or zk-STARKs.  
 The target language is the zkLean DSL ([link](https://github.com/GaloisInc/zk-lean)) developed by Galois for specifying ZK statements.
 
