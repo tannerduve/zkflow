@@ -10,8 +10,8 @@ The compiler is written in Lean and several properties have been formally verifi
 
 ## Project Goals
 
-- **Write small programs** using high-level constructs (arithmetic, booleans, if-then-else, etc.).
-- **Compile automatically** into low-level constraint systems suitable for ZK proof backends.
+- **Write small programs** using simple constructs (arithmetic, booleans, if-then-else, etc.).
+- **Compile** into low-level constraint systems suitable for ZK proof backends.
 - **Formally prove** that the compiler preserves semantics: the meaning of a program matches the meaning of the generated constraint system.
 - **Generate visualized circuits** produced by the compiler
 ---
@@ -26,7 +26,7 @@ The source language (called `Term`) includes:
 - Conditionals (`ifz` — if-then-else)
 - Set membership tests (`inSet`)
 - Let-bindings (`let x = t1 in t2`)
-- Assertions (`assert t1 then t1`)
+- Assertions (`assert t1 then t2`)
 - Sequencing of programs (`t1 ; t2`)
 
 There are no functions or recursion — the language is deliberately small, static, and designed for easy compilation into circuit constraints.
@@ -35,15 +35,13 @@ There are no functions or recursion — the language is deliberately small, stat
 
 ## How Compilation Works
 
-Each source program is compiled into:
+Each source program is compiled into an expression wrapped in a `ZkBuilder` state monad consisting of:
 
-- A **constraint system**: a list of polynomial equalities over the field.
-- A **compiled expression** (`ZKExpr`) representing the program’s output.
-- A **witness**: an assignment of field elements satisfying the constraints.
+- A **compiled expression** (`ZKExpr`) representing the program’s output (the value)
+- A **constraint system**: a list of polynomial equalities over the field (the state)
+- A **witness**: an assignment of field elements satisfying the constraints (the state)
 
 The compiler internally allocates **witness variables** as needed, enforces constraints through simple rewriting, and preserves the structure of computation.
-
-The resulting constraint system can be passed directly into a ZK backend to generate proofs.
 
 ---
 
