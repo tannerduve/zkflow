@@ -109,7 +109,7 @@ The core correctness theorem (`compileExpr_correct`) ensures semantic preservati
 - `assertIsBool_sound`: Ensures boolean expressions are properly constrained to 0 or 1.
 - `cs_append`: Constraint satisfaction distributes over list `++`.
 - `constraints_semantics_perm`: Constraint satisfaction is preserved under permutation of constraints.
-- `semantics_zkexpr_suffix_irrelevant`: Evaluation of ZK expressions is unaffected by witness list suffixes.
+- `semantics_zkexpr_suffix_irrelevant`: Evaluation of ZK expressions is unaffected by appending unused witnesses.
 - `constraints_semantics_suffix_irrelevant`: Constraints remain satisfied even if additional (unused) witnesses are appended.
 - `semantics_zkexpr_VBool_true_bound`: Guarantees that boolean-valued expressions only depend on valid witness indices.
 
