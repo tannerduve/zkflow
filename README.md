@@ -35,7 +35,7 @@ There are no functions or recursion — the language is deliberately small, stat
 
 ## How Compilation Works
 
-Each source program is compiled into an expression wrapped in a `ZkBuilder` state monad consisting of:
+Each source program is compiled into a ZK expression wrapped in a `ZkBuilder` state monad consisting of:
 
 - A **compiled expression** (`ZKExpr`) representing the program’s output (the value)
 - A **constraint system**: a list of polynomial equalities over the field (the state)
