@@ -52,8 +52,7 @@ def compileExpr {f} [JoltField f] [DecidableEq f] (t : Term f) (env : Env f) : Z
       match env.lookup x with
       | some (Val.Field n) => pure (ZKExpr.Literal n)
       | some (Val.Bool b)  => pure (ZKExpr.Literal (if b then 1 else 0))
-      | some (Val.Unit)    => pure (ZKExpr.Literal 0)
-      | none               => pure (ZKExpr.Literal 0)
+      | _    => panic s!"Variable {x} not found in environment"
   | Term.lit n => pure (ZKExpr.Literal n)
   | Term.bool b => pure (ZKExpr.Literal (if b then 1 else 0))
   | Term.arith op t1 t2 => do

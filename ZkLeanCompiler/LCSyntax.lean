@@ -56,7 +56,6 @@ Unit is used to represent the absence of a value, for example assert should exec
 inductive Val (f : Type) [Field f] where
 | Field   : f → Val f
 | Bool    : Bool → Val f
-| Unit   : Val f
 
 structure Env (f : Type) [Field f] where
   lookup : String → Option (Val f)
@@ -66,7 +65,7 @@ def Env.insert {f : Type} [Field f] (x : String) (v : Val f) (ρ : Env f) : Env 
   { lookup := fun y => if x == y then some v else ρ.lookup y }
 
 def wellScoped {f} [Field f] (t : Term f) (env : Env f) : Prop :=
-  ∀ x ∈ freeVars t, ∃ v, env.lookup x = some v ∧ v ≠ Val.Unit
+  ∀ x ∈ freeVars t, ∃ v, env.lookup x = some v
 
 namespace Term
   variable {f} [Field f]

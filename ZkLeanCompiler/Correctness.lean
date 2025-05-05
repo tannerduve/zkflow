@@ -179,7 +179,6 @@ lemma wellScoped_of_arith_binop (op : ArithBinOp) (t₁ t₂ : Term F) (env : En
   simp [Set.mem_union] at xFree
   cases' xFree with h₃ h₄
   specialize h₁ x h₃
-  push_neg at h₁
   exact h₁
   specialize h₂ x h₄
   push_neg at h₄
@@ -261,14 +260,9 @@ lemma wellScoped_of_lett_wellScoped (x : String) (t₁ t₂ : Term F) (env : Env
   cases' yfree with h₃ h₄
   specialize h₁ y h₃
   exact h₁
-  push_neg at h₁
   by_cases h : (y = x)
   · subst h
-    simp [h₁]
-    push_neg
-    specialize h₂ y h₄.1
-    push_neg  at h₄
-    cases' h₄ with h₄l h₄r
+    cases h₄
     contradiction
   · specialize h₂ y h₄.1
     push_neg at h₄ h
@@ -307,11 +301,9 @@ lemma wellScoped_of_assert_wellScoped (t₁ t₂ : Term F) (env : Env F) :
   cases' xfree with h₁ h₂
   cases' h with lt rt
   specialize lt x h₁
-  push_neg at lt
   exact lt
   cases' h with lt rt
   specialize rt x h₂
-  push_neg at rt
   exact rt
   intro h
   constructor
@@ -320,14 +312,12 @@ lemma wellScoped_of_assert_wellScoped (t₁ t₂ : Term F) (env : Env F) :
     unfold freeVars at h
     simp [Set.mem_union] at h
     specialize h x (Or.inl xfree)
-    push_neg at h
     exact h
   · intro x xfree
     simp [wellScoped] at h
     unfold freeVars at h
     simp [Set.mem_union] at h
     specialize h x (Or.inr xfree)
-    push_neg at h
     exact h
 
 lemma wellScoped_of_inSet_wellScoped (t : Term F) (ts : List F) (env : Env F) :
@@ -345,7 +335,6 @@ lemma wellScoped_of_inSet_wellScoped (t : Term F) (ts : List F) (env : Env F) :
   specialize h x
   simp [freeVars] at h
   specialize h xfree
-  push_neg at h
   exact h
 
 ------------------------ WELL SCOPED LEMMAS DONE ---------------------------
@@ -432,17 +421,23 @@ lemma constraints_semantics_suffix_irrelevant
       simp [hc] at h
 
 lemma compileExpr_constraints_append
-  (t : Term F) (env : Env F) (s : ZKBuilderState F) :
+  (t : Term F) (env : Env F) (s : ZKBuilderState F) (heval : ∃ v, Eval F t env v) :
   (compileExpr t env s).2.constraints =
     s.constraints ++ (compileExpr t env initialZKBuilderState).2.constraints := by
     induction t
     case var x =>
       simp [compileExpr]
-      cases env.lookup x
+      cases h : env.lookup x
       simp [pure, StateT.pure, initialZKBuilderState]
       case some v =>
         cases v
         all_goals { simp [pure, StateT.pure, initialZKBuilderState] }
+      case none =>
+        cases' heval with v hv
+        cases hv
+        case intro.var h' =>
+          rw [h] at h'
+          contradiction
     case lit n =>
       simp [compileExpr, pure, StateT.pure, initialZKBuilderState]
     case bool b =>
@@ -450,7 +445,31 @@ lemma compileExpr_constraints_append
       simp [pure, StateT.pure, initialZKBuilderState]
     case arith op t₁ t₂ ih₁ ih₂ =>
       simp [compileExpr]
-      sorry
+      cases' heval with v hv
+      cases hv
+      case intro.arith n₁ n₂ n₁eval n₂eval =>
+        specialize ih₁ ⟨(Val.Field n₁), n₁eval⟩
+        specialize ih₂ ⟨(Val.Field n₂), n₂eval⟩
+        simp [bind, StateT.bind]
+        let (a₁, s₁) := compileExpr t₁ env s
+
+        simp
+        let (a₂, s₂) := compileExpr t₂ env s₁
+        simp
+        simp [liftOpM, bind, StateT.bind]
+        let (a₃, s₃) := Witnessable.witness s₂
+        simp
+        let (a₄, s₄) := constrainEq (op.toZKExpr a₁ a₂) a₃ s₃
+        simp [pure, StateT.pure]
+        let (a₅, s₅) := compileExpr t₁ env initialZKBuilderState
+        simp
+        let (a₆, s₆) := compileExpr t₂ env s₅
+        simp
+        let (a₇, s₇) := Witnessable.witness s₆
+        simp
+        let (a₈, s₈) := constrainEq (op.toZKExpr a₅ a₆) a₇ s₇
+        simp
+        sorry
     case boolB op t₁ t₂ ih₁ ih₂ =>
       simp [compileExpr]
       sorry
@@ -497,19 +516,6 @@ theorem compileExpr_correct :
           use [if b then 1 else 0]
           constructor
           all_goals {constructor}
-        · case Unit =>
-          simp [Val.toValue, semantics_zkexpr]
-          use []
-          constructor
-          · constructor
-          · have contra : env₁.lookup x' ≠ some Val.Unit := by {
-            simp [wellScoped] at hWellScoped
-            specialize hWellScoped x'
-            have ezlem : x' ∈ @freeVars F _ (Term.var x') := by simp [freeVars]
-            specialize hWellScoped ezlem
-            simp [hLookup] at hWellScoped
-          }
-            contradiction
       · case lit Ffield env₁ f =>
         -- Case: literal
         let compiled := ((compileExpr (Term.lit f) env).run initialZKBuilderState).1

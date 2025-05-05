@@ -20,7 +20,6 @@ instance {f} [ToString f] [JoltField f] : ToString (Value f) where
 def Val.toValue [JoltField f] : Val f → Value f
   | Val.Field x => Value.VField x
   | Val.Bool b  => Value.VField (if b then 1 else 0)
-  | _           => Value.None
 
 def semantics_zkexpr [JoltField f] (exprs: ZKExpr f) (witness: List f) : Value f :=
   let rec eval (e: ZKExpr f) : Value f :=

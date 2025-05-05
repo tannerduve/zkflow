@@ -33,17 +33,34 @@ digraph {
 	assert_2 [label="==" fillcolor=orange shape=diamond style=filled]
 	mul_3 -> assert_2
 	lit:0 -> assert_2
+	"lit:1" [label="lit:1" fillcolor=lightgray shape=circle style=filled]
+	w0 [label=w0 fillcolor=lightblue shape=doublecircle style=filled]
+	sub_4 [label=sub fillcolor=lightyellow shape=box style=filled]
+	lit:1 -> sub_4
+	w0 -> sub_4
+	"lit:1" [label="lit:1" fillcolor=lightgray shape=circle style=filled]
+	"lit:1" [label="lit:1" fillcolor=lightgray shape=circle style=filled]
+	sub_5 [label=sub fillcolor=lightyellow shape=box style=filled]
+	lit:1 -> sub_5
+	lit:1 -> sub_5
+	w1 [label=w1 fillcolor=lightblue shape=doublecircle style=filled]
+	mul_6 [label=mul fillcolor=lightyellow shape=box style=filled]
+	sub_5 -> mul_6
+	w1 -> mul_6
+	assert_3 [label="==" fillcolor=orange shape=diamond style=filled]
+	sub_4 -> assert_3
+	mul_6 -> assert_3
 	w0 [label=w0 fillcolor=lightblue shape=doublecircle style=filled]
 	"lit:1" [label="lit:1" fillcolor=lightgray shape=circle style=filled]
 	"lit:1" [label="lit:1" fillcolor=lightgray shape=circle style=filled]
-	sub_4 [label=sub fillcolor=lightyellow shape=box style=filled]
-	lit:1 -> sub_4
-	lit:1 -> sub_4
-	mul_5 [label=mul fillcolor=lightyellow shape=box style=filled]
-	w0 -> mul_5
-	sub_4 -> mul_5
+	sub_7 [label=sub fillcolor=lightyellow shape=box style=filled]
+	lit:1 -> sub_7
+	lit:1 -> sub_7
+	mul_8 [label=mul fillcolor=lightyellow shape=box style=filled]
+	w0 -> mul_8
+	sub_7 -> mul_8
 	"lit:0" [label="lit:0" fillcolor=lightgray shape=circle style=filled]
-	assert_3 [label="==" fillcolor=orange shape=diamond style=filled]
-	mul_5 -> assert_3
-	lit:0 -> assert_3
+	assert_4 [label="==" fillcolor=orange shape=diamond style=filled]
+	mul_8 -> assert_4
+	lit:0 -> assert_4
 }
