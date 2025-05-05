@@ -140,7 +140,7 @@ zkFlow supports automatic visualization of compiled ZK circuits.
 1. Write a `.zk` program, ie. a file with extension .zk with a single program such as the following e.g.:
 
     ```zk
-    let x = 2 + 3 in assert(x * 2 == 10)
+    let x = 2 + 3 in assert(x * 2 == 10) then (3 + 2)
     ```
 
 2. Compile and generate constraints:
