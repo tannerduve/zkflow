@@ -67,21 +67,30 @@ def compileExpr {f} [JoltField f] [DecidableEq f] (t : Term f) (env : Env f) : Z
   | Term.eq t1 t2 => do
     let a ← compileExpr t1 env
     let b ← compileExpr t2 env
-    let z ← Witnessable.witness
-    constrainR1CS z (ZKExpr.Sub a b) (ZKExpr.Literal 0)
+
+    -- z  : boolean result  (0 ⇒ false, 1 ⇒ true)
+    -- inv: multiplicative inverse of (a‑b) when they differ
+    let z   ← Witnessable.witness
+    let inv ← Witnessable.witness
+
+    -- If a ≠ b, then (a‑b) ≠ 0 ⇒ first constraint forces z = 0
+    constrainR1CS z (ZKExpr.Sub a b) (ZKExpr.Literal 0)          -- z·(a‑b) = 0
+
+    -- If a = b, then (a‑b)=0 ⇒ second constraint forces z = 1
+    --    Otherwise it merely defines inv = (a‑b)⁻¹
+    constrainEq
+      (ZKExpr.Sub (ZKExpr.Literal 1) z)                          -- 1‑z
+      (ZKExpr.Mul (ZKExpr.Sub a b) inv)                          -- (a‑b)·inv
+
+    -- z must be 0 or 1 (booleanity)
     assertIsBool z
     return z
   | Term.ifz c t1 t2 => do
     let cond ← compileExpr c env
     let thenV ← compileExpr t1 env
     let elseV ← compileExpr t2 env
-
-    -- Enforce cond ∈ {0,1}
     assertIsBool cond
-
     let out ← Witnessable.witness
-
-  -- out = cond * thenV + (1 - cond) * elseV
     constrainEq
       (ZKExpr.Add (ZKExpr.Mul cond thenV)
                 (ZKExpr.Mul (ZKExpr.Sub (ZKExpr.Literal 1) cond) elseV))
@@ -98,7 +107,7 @@ def compileExpr {f} [JoltField f] [DecidableEq f] (t : Term f) (env : Env f) : Z
     -- 1.  evaluate / constant–fold the bound expression
     match eval t1 env with
     | some v =>
-        -- 2. extend the environment **before** compiling the body
+        -- 2. extend the environment before compiling the body
         let env' := env.insert x v
         compileExpr t2 env'
     | none =>

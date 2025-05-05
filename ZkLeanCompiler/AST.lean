@@ -16,7 +16,7 @@ inductive ZKExpr (f: Type) where
   | Sub : (lhs: ZKExpr f) -> (rhs: ZKExpr f) -> ZKExpr f
   | Neg : (rhs: ZKExpr f) -> ZKExpr f
   | Mul : (lhs: ZKExpr f) -> (rhs: ZKExpr f) -> ZKExpr f
-  | Eq :  (lhs: ZKExpr f) -> (rhs: ZKExpr f) -> ZKExpr f -- TODO: possibly change this to | Eq : {a: Type u} -> (lhs: ZKExpr a) -> (rhs: ZKExpr a) -> ZKExpr (ULift Bool)
+  | Eq :  (lhs: ZKExpr f) -> (rhs: ZKExpr f) -> ZKExpr f
   | Lookup: (table: ComposedLookupTable f 16 4) -> (arg1: ZKExpr f) -> (arg2: ZKExpr f) -> ZKExpr f -- TODO fix these 16,4
 infix:50    " === " => ZKExpr.Eq
 

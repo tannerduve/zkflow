@@ -191,7 +191,7 @@ class Parser:
         if self.match("OP", "=="):
             e = TBin("==", e, self.parse_add())
         if self.match("KEYWORD", "inn"):
-            choices = self._parse_set_literal()
+            choices = self.parse_set_literal()
             return TInSet(e, choices)
         return e
 
