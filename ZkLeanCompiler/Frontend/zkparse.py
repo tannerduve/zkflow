@@ -17,7 +17,7 @@ class Token:
 KEYWORDS = {
     "let", "in", "assert",
     "if", "then", "else",
-    "true", "false"
+    "true", "false", "inn"
 }
 
 TOKEN_SPEC = [
@@ -98,6 +98,11 @@ class TIfz:
     cond: Any
     tcase: Any
     fcase: Any
+    
+@dataclass
+class TInSet:
+    elem : Any
+    choices : list[str]
 
 # ---------------------  PARSER  -----------------------------
 
@@ -155,8 +160,7 @@ class Parser:
             self.expect("DELIM", ")")
             self.expect("KEYWORD", "then")   
             body = self.parse_let()            
-            return TAssert(e, body)
-  
+            return TAssert(e, body)  
         return self.parse_if()
 
 
@@ -186,6 +190,9 @@ class Parser:
         e = self.parse_add()
         if self.match("OP", "=="):
             e = TBin("==", e, self.parse_add())
+        if self.match("KEYWORD", "inn"):
+            choices = self._parse_set_literal()
+            return TInSet(e, choices)
         return e
 
     def parse_add(self):
@@ -203,6 +210,18 @@ class Parser:
         while self.match("OP", "*"):
             e = TBin("*", e, self.parse_unary())
         return e
+    
+    def parse_set_literal(self) -> list[str]:
+        self.expect("DELIM", "{")
+        nums: list[str] = []
+        if not self.match("DELIM", "}"):           # non‑empty set
+            while True:
+                tok = self.expect("NUMBER")
+                nums.append(tok.val)
+                if self.match("DELIM", "}"):
+                    break
+                self.expect("DELIM", ",")
+        return nums
 
     def parse_unary(self):
         if self.match("OP", "!"):
@@ -223,6 +242,7 @@ class Parser:
             self.expect("DELIM", ")")
             return e
         raise SyntaxError("Unexpected token")
+    
 
 # ------------------  Lean code generation  ------------------
 
@@ -247,6 +267,9 @@ def to_lean(t) -> str:
         case TAssert(c, b): return f"(Term.assert {to_lean(c)} {to_lean(b)})"
         case TSeq(a, b):   return f"(Term.seq {to_lean(a)} {to_lean(b)})"
         case TIfz(c, t, e):return f"(Term.ifz {to_lean(c)} {to_lean(t)} {to_lean(e)})"
+        case TInSet(elem, xs):
+            xs_lean = ", ".join(xs)
+            return f"(Term.inSet {to_lean(elem)} [{xs_lean}])"
         case _: raise ValueError("unknown AST node")
 
 

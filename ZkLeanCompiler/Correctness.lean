@@ -9,6 +9,9 @@ set_option linter.unusedSectionVars false
 
 variable {F} [JoltField F] [DecidableEq F]
 
+/-
+witnessIndices returns the indices of the witness variables in a ZKExpr.
+-/
 def witnessIndices : ZKExpr f → Finset ℕ
   | ZKExpr.Literal _        => ∅
   | ZKExpr.WitnessVar i     => {i}
@@ -104,103 +107,31 @@ lemma constraints_semantics_perm {f} [JoltField f]
   · case trans l₁ l₂ l₃ perm₁ perm₂ ih₁ ih₂ =>
     rw [ih₁, ih₂]
 
-lemma semantics_zkexpr_suffix_irrelevant
-  {f} [JoltField f] (c : ZKExpr f) (w w' : List f)
+lemma semantics_zkexpr_suffix_irrelevant [JoltField f] (c : ZKExpr f) (w w' : List f)
   (h : ∀ i, i ∈ witnessIndices c → i < w.length) :
   semantics_zkexpr c w = semantics_zkexpr c (w ++ w') := by
-  induction' c
+  induction' c with n i e₁ e₂ ih₁ ih₂ e₁ e₂ ih₁ ih₂ e ih e₁ e₂ ih₁ ih₂ e₁ e₂ ih₁ ih₂ table e₁ e₂ ih₁ ih₂
   · case Literal n =>
     simp [semantics_zkexpr, semantics_zkexpr.eval]
   · case WitnessVar i =>
-    simp [semantics_zkexpr]
-    specialize h i
+    simp [semantics_zkexpr]; specialize h i
     have lem : i ∈ @witnessIndices f (ZKExpr.WitnessVar i) := by
       simp [witnessIndices]
     specialize h lem
     have lem2 : i < w.length + w'.length := by
       omega
     simp [semantics_zkexpr, semantics_zkexpr.eval, h, lem2]
-  · case Add e₁ e₂ ih₁ ih₂ =>
-    simp [semantics_zkexpr]
-    simp [witnessIndices] at h
+  case Neg =>
+    simp [semantics_zkexpr]; (specialize ih h); simp [semantics_zkexpr, semantics_zkexpr.eval] at *; simp [ih]
+  all_goals {
+    simp [semantics_zkexpr]; simp [witnessIndices] at h
     have h₁ : ∀ i, i ∈ witnessIndices e₁ → i < w.length := by
-      intro i hi
-      specialize h i (Or.inl hi)
-      exact h
+      intro i hi; (specialize h i (Or.inl hi)); exact h
     have h₂ : ∀ i, i ∈ witnessIndices e₂ → i < w.length := by
-      intro i hi
-      specialize h i (Or.inr hi)
-      exact h
-    specialize ih₁ h₁
-    specialize ih₂ h₂
-    simp [semantics_zkexpr, semantics_zkexpr.eval] at *
-    simp [ih₁, ih₂]
-  · case Sub e₁ e₂ ih₁ ih₂ =>
-    simp [semantics_zkexpr]
-    simp [witnessIndices] at h
-    have h₁ : ∀ i, i ∈ witnessIndices e₁ → i < w.length := by
-      intro i hi
-      specialize h i (Or.inl hi)
-      exact h
-    have h₂ : ∀ i, i ∈ witnessIndices e₂ → i < w.length := by
-      intro i hi
-      specialize h i (Or.inr hi)
-      exact h
-    specialize ih₁ h₁
-    specialize ih₂ h₂
-    simp [semantics_zkexpr, semantics_zkexpr.eval] at *
-    simp [ih₁, ih₂]
-  · case Neg e ih =>
-    simp [semantics_zkexpr]
-    simp [witnessIndices] at h
-    specialize ih h
-    simp [semantics_zkexpr, semantics_zkexpr.eval] at *
-    simp [ih]
-  · case Mul e₁ e₂ ih₁ ih₂ =>
-    simp [semantics_zkexpr]
-    simp [witnessIndices] at h
-    have h₁ : ∀ i, i ∈ witnessIndices e₁ → i < w.length := by
-      intro i hi
-      specialize h i (Or.inl hi)
-      exact h
-    have h₂ : ∀ i, i ∈ witnessIndices e₂ → i < w.length := by
-      intro i hi
-      specialize h i (Or.inr hi)
-      exact h
-    specialize ih₁ h₁
-    specialize ih₂ h₂
-    simp [semantics_zkexpr, semantics_zkexpr.eval] at *
-    simp [ih₁, ih₂]
-  · case Eq e₁ e₂ ih₁ ih₂ =>
-    simp [semantics_zkexpr]
-    simp [witnessIndices] at h
-    have h₁ : ∀ i, i ∈ witnessIndices e₁ → i < w.length := by
-      intro i hi
-      specialize h i (Or.inl hi)
-      exact h
-    have h₂ : ∀ i, i ∈ witnessIndices e₂ → i < w.length := by
-      intro i hi
-      specialize h i (Or.inr hi)
-      exact h
-    specialize ih₁ h₁
-    specialize ih₂ h₂
-    simp [semantics_zkexpr, semantics_zkexpr.eval] at *
-    simp [ih₁, ih₂]
-  · case Lookup table e₁ e₂ ih₁ ih₂ =>
-    simp [semantics_zkexpr]
-    simp [witnessIndices] at h
-    have h₁ : ∀ i, i ∈ witnessIndices e₁ → i < w.length := by
-      intro i hi
-      specialize h i (Or.inl hi)
-      exact h
-    have h₂ : ∀ i, i ∈ witnessIndices e₂ → i < w.length := by
-      intro i hi
-      specialize h i (Or.inr hi)
-      exact h
-    specialize ih₁ h₁
-    specialize ih₂ h₂
-    simp [semantics_zkexpr, semantics_zkexpr.eval] at *
-    simp [ih₁, ih₂]
+      intro i hi; (specialize h i (Or.inr hi)); exact h
+    (specialize ih₁ h₁); specialize ih₂ h₂
+    simp [semantics_zkexpr, semantics_zkexpr.eval] at *; simp [ih₁, ih₂]
+  }
 
 -- witness indexing
 lemma get_last {α} {l₁ l₂ : List α} {x : α} [Inhabited α] :
@@ -223,7 +154,8 @@ lemma wellScoped_of_neg_wellScoped (t : Term F) (env : Env F) :
     exact h
 
 lemma wellScoped_of_arith_binop (op : ArithBinOp) (t₁ t₂ : Term F) (env : Env F) :
-  wellScoped (Term.arith op t₁ t₂) env → wellScoped t₁ env ∧ wellScoped t₂ env := by
+  wellScoped (Term.arith op t₁ t₂) env ↔ wellScoped t₁ env ∧ wellScoped t₂ env := by
+  constructor
   intro h
   simp [wellScoped] at h
   constructor
@@ -239,6 +171,19 @@ lemma wellScoped_of_arith_binop (op : ArithBinOp) (t₁ t₂ : Term F) (env : En
     simp [Set.mem_union] at h
     specialize h (Or.inr xfree)
     exact h
+  intro h
+  cases' h with h₁ h₂
+  simp [wellScoped] at h₁ h₂ ⊢
+  intro x xFree
+  unfold freeVars at xFree
+  simp [Set.mem_union] at xFree
+  cases' xFree with h₃ h₄
+  specialize h₁ x h₃
+  push_neg at h₁
+  exact h₁
+  specialize h₂ x h₄
+  push_neg at h₄
+  exact h₂
 
 lemma welLScoped_of_bool_binop (op : BoolBinOp) (t₁ t₂ : Term F) (env : Env F) :
   wellScoped (Term.boolB op t₁ t₂) env → wellScoped t₁ env ∧ wellScoped t₂ env := by
@@ -696,7 +641,7 @@ theorem compileExpr_correct :
       · sorry
       · sorry
       · sorry
-      · case seq Ffield env' t₁ t₂ v₁ h₁ h₂ ih₁ ih₂ =>
+      · case seq Ffield env' t₁ t₂ v₁ v₂ h₁ h₂ ih₁ ih₂ =>
         -- Case: sequential composition
         let compiled := ((compileExpr (Term.seq t₁ t₂) env').run initialZKBuilderState).1
         let st := ((compileExpr (Term.seq t₁ t₂) env').run initialZKBuilderState).2

@@ -277,3 +277,5 @@ def failInSetWitness : List ℚ := [4, 3, 0, 1]
 #eval! demo failAssertCheck failAssertWitness (expected := Val.Field 1)
 #eval! demo failBoolCheck failBoolWitness (expected := Val.Field 1)
 #eval! demo failInSetCheck failInSetWitness (expected := Val.Field 1)
+
+#check LawfulFunctor
