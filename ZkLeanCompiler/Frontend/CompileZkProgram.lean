@@ -7,7 +7,7 @@ import Lean.Data.Json.Basic
 
 open Term
 
-def program : Term ℚ := parsedProg_assert
+def program : Term ℚ := parsedProg_complex
 
 /-- convert compiled `ZKExpr` into a small Json tree -/
 def toJson : ZKExpr ℚ → Lean.Json

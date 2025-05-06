@@ -73,6 +73,9 @@ inductive Eval (f : Type) [Field f] [BEq f] : Term f → Env f → Val f → Pro
     Eval f t₂ env v →
     Eval f (t₁ ; t₂) env v
 
+/-
+A functional version of our operational semantics
+-/
 def eval {f} [Field f] [BEq f] [DecidableEq f] : Term f → Env f → Option (Val f)
 | Term.var x, env =>
   match env.lookup x with

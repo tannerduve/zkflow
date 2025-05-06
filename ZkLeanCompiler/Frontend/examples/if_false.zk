@@ -1,0 +1,2 @@
+# witness: [7]
+if false then 42 else 7

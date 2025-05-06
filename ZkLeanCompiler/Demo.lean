@@ -188,14 +188,14 @@ def complexSeqCheck : Term ℚ :=
   ASSERT (~ false && true) then (3 .+. 1) ;
   ASSERT (7 .-. 2 =-= 5) then (Term.bool true)
 
-def arithmeticWitness : List ℚ := [3, 9, 1, 4] -- 3 = 2+1, 9 = 3*3, 1 = (9==9)
+def arithmeticWitness : List ℚ := [3, 9, 1, 0, 4] -- 3 = 2+1, 9 = 3*3, 1 = (9==9)
 def booleanAndWitness : List ℚ := [1, 1, 1, 1]
 def booleanOrWitness : List ℚ := [1, 0, 1, 1]
-def ifzWitness : List ℚ := [2, 1, 3, 8, 1, 5]
+def ifzWitness : List ℚ := [2, 1, 0, 3, 8, 1, 0, 5]
 def notEqWitness      : List ℚ := [0, 1, 3]               -- ~false == true → 1
 def inSetWitness      : List ℚ := [1, 0, 4]            -- membership check output
 def letBindingWitness : List ℚ := [10, 1]           -- x = 5, x * 2 = 10, equality holds
-def nestedLetWitness  : List ℚ := [1]            -- x = 0, then y = 5
+def nestedLetWitness  : List ℚ := [1, 0]            -- x = 0, then y = 5
 def complexSeqWitness : List ℚ := [3, 1, 1, 1, 4, 5, 1]    -- outputs of each expr in sequence
 
 def mulAddCheck : Term ℚ := (2 .+. 3) ⊗ 4
@@ -241,25 +241,27 @@ def failInSetWitness : List ℚ := [4, 3, 0, 1]
 
 #eval! demo arithmeticCheck arithmeticWitness (expected := Val.Field 4)
 
+#eval! demo (Term.bool true && true) [(1 : ℚ)] (expected := Val.Bool true)
+
 #eval! demo booleanAndCheck booleanAndWitness (expected := Val.Field 1)
 
 #eval! demo ifzCheck ifzWitness (expected := Val.Field 5)
 
 #eval! demo booleanOrCheck booleanOrWitness (expected := Val.Field 1)
 
-#eval! demo seqArithmetic [5, 1, 8, 1, 9] (expected := Val.Field 9)
+#eval! demo seqArithmetic [5, 1, 0, 8, 1, 0, 9] (expected := Val.Field 9)
 
-#eval! demo seqIfzArithmetic [2, 1, 3, 9, 1, 9] (expected := Val.Field 9)
+#eval! demo seqIfzArithmetic [2, 1, 1, 3, 9, 1, 1, 9] (expected := Val.Field 9)
 
-#eval! demo notEqCheck notEqWitness (expected := Val.Field 3)
+#eval! demo notEqCheck [0, -1, 1, 3] (expected := Val.Field 3)
 
 #eval! demo inSetCheck inSetWitness (expected := Val.Field 4)
 
-#eval! demo letBindingCheck letBindingWitness (expected := Val.Field 35)
+#eval! demo letBindingCheck [10, 1, 0, 35] (expected := Val.Field 35)
 
-#eval! demo nestedLetIfzCheck nestedLetWitness (expected := Val.Field 1)
+#eval! demo nestedLetIfzCheck [1,0] (expected := Val.Field 1)
 
-#eval! demo complexSeqCheck complexSeqWitness (expected := Val.Field 1)
+#eval! demo complexSeqCheck [3, 1, 0, 1, 1, 4, 5, 1, 0] (expected := Val.Field 1)
 
 #eval! demo mulAddCheck mulAddWitness (expected := mulAddExpected)
 
@@ -272,6 +274,15 @@ def failInSetWitness : List ℚ := [4, 3, 0, 1]
 #eval! demo letUse letUseWitness (expected := letUseExpected)
 
 #eval! demo inSetBool inSetBoolWitness (expected := inSetBoolExpected)
+
+#eval! demo
+  (Term.seq
+    (Term.assert (Term.eq (Term.lit (1 : ℚ) .+. Term.lit 2) (Term.lit 3)) true)
+    (Term.seq
+      (Term.assert (Term.boolB BoolBinOp.and (Term.not false) true) (3 + 1))
+      (Term.assert (Term.eq (7 - 2) 5) true)))
+  [3, 1, 0, 1, 1, 4, 5, 1, 0]
+  (expected := Val.Field 1)
 
 -- Failing tests
 #eval! demo failAssertCheck failAssertWitness (expected := Val.Field 1)
