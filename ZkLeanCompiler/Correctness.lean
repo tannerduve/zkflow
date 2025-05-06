@@ -135,15 +135,15 @@ lemma semantics_zkexpr_suffix_irrelevant [JoltField f] (c : ZKExpr f) (w w' : Li
 
 -- witness indexing
 lemma get_last {α} {l₁ l₂ : List α} {x : α} [Inhabited α] :
-  List.get! (l₁ ++ l₂ ++ [x]) (l₁.length + l₂.length) = x := by
-  simp [List.get!]
+  (l₁ ++ l₂ ++ [x])[(l₁.length + l₂.length)]! = x := by
+  simp
 
 ----------------------------- WELL SCOPED LEMMAS -----------------------------
 /-
 These lemmas are each of the form `wellScoped t env → wellScoped (Term.op t) env` where op is some
 operation on terms, eg. Term.add, etc.
 -/
-lemma wellScoped_of_neg_wellScoped (t : Term F) (env : Env F) :
+lemma wellScoped_iff_neg_wellScoped (t : Term F) (env : Env F) :
   wellScoped (Term.not t) env ↔ wellScoped t env := by
   constructor
   · intro h
@@ -153,7 +153,7 @@ lemma wellScoped_of_neg_wellScoped (t : Term F) (env : Env F) :
     simp [Term.not] at h
     exact h
 
-lemma wellScoped_of_arith_binop (op : ArithBinOp) (t₁ t₂ : Term F) (env : Env F) :
+lemma wellScoped_iff_arith_binop (op : ArithBinOp) (t₁ t₂ : Term F) (env : Env F) :
   wellScoped (Term.arith op t₁ t₂) env ↔ wellScoped t₁ env ∧ wellScoped t₂ env := by
   constructor
   intro h
@@ -247,9 +247,11 @@ lemma weakening (env : Env F) (x₁ x₂ : String) (v : Val F) :
   symm at hne
   simp [Env.insert, hne]
 
-lemma wellScoped_of_lett_wellScoped (x : String) (t₁ t₂ : Term F) (env : Env F) :
-  wellScoped t₁ env ∧ wellScoped t₂ (Env.insert x (Val.Field 0) env) →
+lemma wellScoped_iff_lett_wellScoped (x : String) (t₁ t₂ : Term F) (env : Env F) (v : Val F)
+  (heval : Eval F t₁ env v) :
+  wellScoped t₁ env ∧ wellScoped t₂ (Env.insert x v env) ↔
   wellScoped (Term.lett x t₁ t₂) env := by
+  constructor
   intro h
   cases' h with h₁ h₂
   simp [Term.lett] at *
@@ -266,7 +268,7 @@ lemma wellScoped_of_lett_wellScoped (x : String) (t₁ t₂ : Term F) (env : Env
     contradiction
   · specialize h₂ y h₄.1
     push_neg at h₄ h
-    have lookup_eq : env.lookup y = (env.insert x (Val.Field 0)).lookup y := by
+    have lookup_eq : env.lookup y = (env.insert x v).lookup y := by
       apply weakening
       exact h
     cases' h₂ with v' h₂'
@@ -274,9 +276,21 @@ lemma wellScoped_of_lett_wellScoped (x : String) (t₁ t₂ : Term F) (env : Env
     rw [lookup_eq]
     push_neg at h₂'
     exact h₂'
+  intro letin
+  simp [wellScoped] at letin ⊢
+  constructor
+  intro x xin
+  simp [freeVars] at letin
+  specialize letin x (Or.inl xin)
+  exact letin
+  intro x' xin
+  simp [freeVars] at letin
+  specialize letin x'
+  sorry
 
-lemma wellScoped_of_seq_wellScoped (t₁ t₂ : Term F) (env : Env F) :
-  wellScoped t₁ env ∧ wellScoped t₂ env → wellScoped (Term.seq t₁ t₂) env := by
+lemma wellScoped_iff_seq_wellScoped (t₁ t₂ : Term F) (env : Env F) :
+  wellScoped t₁ env ∧ wellScoped t₂ env ↔ wellScoped (Term.seq t₁ t₂) env := by
+  constructor
   intro h
   cases' h with h₁ h₂
   simp [Term.seq] at *
@@ -289,8 +303,15 @@ lemma wellScoped_of_seq_wellScoped (t₁ t₂ : Term F) (env : Env F) :
   exact h₁
   specialize h₂ x h₄
   exact h₂
+  intro h
+  simp [wellScoped] at h ⊢
+  constructor
+  intro x xin
+  simp [freeVars] at h
+  specialize h x (Or.inl xin)
+  exact h
 
-lemma wellScoped_of_assert_wellScoped (t₁ t₂ : Term F) (env : Env F) :
+lemma wellScoped_iff_assert_wellScoped (t₁ t₂ : Term F) (env : Env F) :
   ((wellScoped t₁ env) ∧ (wellScoped t₂ env)) ↔ wellScoped (Term.assert t₁ t₂) env := by
   constructor
   intro h
@@ -320,7 +341,7 @@ lemma wellScoped_of_assert_wellScoped (t₁ t₂ : Term F) (env : Env F) :
     specialize h x (Or.inr xfree)
     exact h
 
-lemma wellScoped_of_inSet_wellScoped (t : Term F) (ts : List F) (env : Env F) :
+lemma wellScoped_iff_inSet_wellScoped (t : Term F) (ts : List F) (env : Env F) :
   wellScoped t env ↔ wellScoped (Term.inSet t ts) env := by
   constructor
   intro h
@@ -357,6 +378,10 @@ lemma semantics_zkexpr_VBool_true_bound {f} [JoltField f] (c : ZKExpr f) (w : Li
     · simp [h'] at h
     · simp [h'] at h
   · case Add e₁ e₂ ih₁ ih₂ =>
+    cases h' : semantics_zkexpr (e₁.Add e₂) w
+    case VBool b =>
+      sorry
+    sorry
     sorry
   all_goals {sorry}
 
@@ -452,7 +477,6 @@ lemma compileExpr_constraints_append
         specialize ih₂ ⟨(Val.Field n₂), n₂eval⟩
         simp [bind, StateT.bind]
         let (a₁, s₁) := compileExpr t₁ env s
-
         simp
         let (a₂, s₂) := compileExpr t₂ env s₁
         simp
@@ -493,7 +517,7 @@ theorem compileExpr_correct :
     wellScoped t env →
     Eval F t env v →
     ∃ (witness : List F),
-      let (compiledExpr, st) := (compileExpr t env).run initialZKBuilderState
+      let (compiledExpr, st) := (compileExpr t env) initialZKBuilderState
       constraints_semantics st.constraints witness = true ∧
       semantics_zkexpr compiledExpr witness = Val.toValue v := by
       intro t env v hWellScoped hEval
@@ -557,16 +581,27 @@ theorem compileExpr_correct :
         specialize ih₂ lem2
         cases' ih₁ with witness₁ h₁
         cases' ih₂ with witness₂ h₂
-        use (witness₁ ++ witness₂)
-        constructor
-        · simp [initialZKBuilderState]
-          simp [initialZKBuilderState, StateT.run, compileExpr] at h₁
-          simp [initialZKBuilderState, StateT.run, compileExpr] at h₂
-          cases' h₁ with csem₁ h₁'
-          cases' h₂ with csem₂ h₂'
-          simp [StateT.run, constrainEq]
+        cases' h₁ with csem₁ h₁
+        cases' h₂ with csem₂ h₂
+        cases op
+        · case intro.intro.add =>
+          use (witness₁ ++ witness₂ ++ [f₁ + f₂])
+          constructor
+          · simp [StateT.run] at *
+            simp [constraints_semantics]
+            let v := semantics_zkexpr (ArithBinOp.add.toZKExpr (compileExpr t₁ env' initialZKBuilderState).1 (compileExpr t₂ env' (compileExpr t₁ env' initialZKBuilderState).2).1) (witness₁ ++ (witness₂ ++ [f₁ + f₂]))
+            have vdef : v = Val.toValue (Val.Field (f₁ + f₂)) := by
+              simp only [Val.toValue, v]
+              have lem1 : semantics_zkexpr (compileExpr t₁ env' initialZKBuilderState).1 witness₁ = semantics_zkexpr (compileExpr t₁ env' initialZKBuilderState).1 (witness₁ ++ (witness₂ ++ [f₁ + f₂])) := by {
+                apply semantics_zkexpr_suffix_irrelevant
+                intro i iin
+
+                sorry
+              }
+              sorry
+            sorry
           sorry
-        · sorry
+        all_goals {sorry}
       · case boolB Ffield F' env' op t₁ t₂ b₁ b₂ h₁ h₂ ih₁ ih₂ =>
         -- Case: boolean operation
         let compiled := ((compileExpr (Term.boolB op t₁ t₂) env').run initialZKBuilderState).1
@@ -624,7 +659,6 @@ theorem compileExpr_correct :
           simp [initialZKBuilderState, StateT.run, compileExpr] at h₂
           cases' h₁ with csem₁ h₁'
           cases' h₂ with csem₂ h₂'
-          simp [StateT.run, constrainEq]
           sorry
         sorry
       · case not Ffield env' t b hbeval ih =>
@@ -674,6 +708,5 @@ theorem compileExpr_correct :
           simp [initialZKBuilderState, StateT.run, compileExpr] at h₂
           cases' h₁ with csem₁ h₁'
           cases' h₂ with csem₂ h₂'
-          simp [StateT.run, constrainEq]
           sorry
         sorry
