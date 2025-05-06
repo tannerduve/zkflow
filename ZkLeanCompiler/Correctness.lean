@@ -273,9 +273,8 @@ lemma weakening (env : Env F) (x₁ x₂ : String) (v : Val F) :
 
 lemma wellScoped_iff_lett_wellScoped (x : String) (t₁ t₂ : Term F) (env : Env F) (v : Val F)
   (heval : Eval F t₁ env v) :
-  wellScoped t₁ env ∧ wellScoped t₂ (Env.insert x v env) ↔
+  wellScoped t₁ env ∧ wellScoped t₂ (Env.insert x v env) →
   wellScoped (Term.lett x t₁ t₂) env := by
-  constructor
   intro h
   cases' h with h₁ h₂
   simp [Term.lett] at *
@@ -300,17 +299,6 @@ lemma wellScoped_iff_lett_wellScoped (x : String) (t₁ t₂ : Term F) (env : En
     rw [lookup_eq]
     push_neg at h₂'
     exact h₂'
-  intro letin
-  simp [wellScoped] at letin ⊢
-  constructor
-  intro x xin
-  simp [freeVars] at letin
-  specialize letin x (Or.inl xin)
-  exact letin
-  intro x' xin
-  simp [freeVars] at letin
-  specialize letin x'
-  sorry
 
 lemma wellScoped_iff_seq_wellScoped (t₁ t₂ : Term F) (env : Env F) :
   wellScoped t₁ env ∧ wellScoped t₂ env ↔ wellScoped (Term.seq t₁ t₂) env := by
@@ -811,5 +799,14 @@ theorem compiler_preserves_eval :
         simp
         simp [compiledExpr, compileExpr, bind, StateT.bind]
         let (a, s) := compileExpr t₁ env' initialZKBuilderState
-        let (a₁, s₁) := compileExpr t₂ env' s
         simp
+        let (a₁, s₁) := compileExpr t₂ env' s
+        simp [liftOpM, bind, StateT.bind]
+        let (a₂, s₂) := Witnessable.witness s₁
+        simp
+        let (a3, s3) := constrainEq (ArithBinOp.add.toZKExpr a a₁) a₂ s₂
+        simp; simp [pure, StateT.pure]
+        sorry
+      sorry
+      sorry
+    all_goals sorry

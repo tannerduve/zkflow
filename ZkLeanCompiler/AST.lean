@@ -8,7 +8,6 @@ deriving instance BEq, Ord, Hashable for Ident
 instance : OfNat (Ident) n where
   ofNat := n
 
-
 inductive ZKExpr (f: Type) where
   | Literal : (lit: f) -> ZKExpr f
   | WitnessVar : (id: Nat) -> ZKExpr f
