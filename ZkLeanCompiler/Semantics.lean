@@ -114,3 +114,20 @@ def constraints_semantics [JoltField f] (constraints: List (ZKExpr f)) (witness:
       then constraints_semantics cs witness
       else false
     | _ => false
+
+inductive ConstraintsSatisfied [JoltField f]
+  : List (ZKExpr f) → List f → Prop
+| nil  {w} :
+    ConstraintsSatisfied [] w
+| cons {c cs w} :
+    ZKEval w c (Value.VBool true) →
+    ConstraintsSatisfied cs w →
+    ConstraintsSatisfied (c :: cs) w
+
+open Classical
+
+noncomputable def constraints_semantics'
+    [JoltField f]
+    (cs : List (ZKExpr f))
+    (w  : List f) : Bool :=
+  decide (ConstraintsSatisfied cs w)

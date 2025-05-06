@@ -1,1 +1,2 @@
-assert( 2 inn {1,2,3} ) then 3
+assert( 3 inn {1,2,3} ) then (3 + 1)
+# witness [1, 0, 4]

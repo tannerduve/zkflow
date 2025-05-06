@@ -2,65 +2,228 @@ digraph {
 	"lit:1" [label="lit:1" fillcolor=lightgray shape=circle style=filled]
 	output [label=output fillcolor=lightgreen shape=octagon style=filled]
 	lit:1 -> output
-	w0 [label=w0 fillcolor=lightblue shape=doublecircle style=filled]
+	w7 [label=w7 fillcolor=lightblue shape=doublecircle style=filled]
 	"lit:1" [label="lit:1" fillcolor=lightgray shape=circle style=filled]
 	assert_0 [label="==" fillcolor=orange shape=diamond style=filled]
-	w0 -> assert_0
+	w7 -> assert_0
 	lit:1 -> assert_0
-	w0 [label=w0 fillcolor=lightblue shape=doublecircle style=filled]
+	w7 [label=w7 fillcolor=lightblue shape=doublecircle style=filled]
 	"lit:1" [label="lit:1" fillcolor=lightgray shape=circle style=filled]
-	w0 [label=w0 fillcolor=lightblue shape=doublecircle style=filled]
+	w7 [label=w7 fillcolor=lightblue shape=doublecircle style=filled]
 	sub_0 [label=sub fillcolor=lightyellow shape=box style=filled]
 	lit:1 -> sub_0
-	w0 -> sub_0
+	w7 -> sub_0
 	mul_1 [label=mul fillcolor=lightyellow shape=box style=filled]
-	w0 -> mul_1
+	w7 -> mul_1
 	sub_0 -> mul_1
 	"lit:0" [label="lit:0" fillcolor=lightgray shape=circle style=filled]
 	assert_1 [label="==" fillcolor=orange shape=diamond style=filled]
 	mul_1 -> assert_1
 	lit:0 -> assert_1
-	w0 [label=w0 fillcolor=lightblue shape=doublecircle style=filled]
+	w7 [label=w7 fillcolor=lightblue shape=doublecircle style=filled]
 	"lit:1" [label="lit:1" fillcolor=lightgray shape=circle style=filled]
-	w0 [label=w0 fillcolor=lightblue shape=doublecircle style=filled]
+	w7 [label=w7 fillcolor=lightblue shape=doublecircle style=filled]
 	sub_2 [label=sub fillcolor=lightyellow shape=box style=filled]
 	lit:1 -> sub_2
-	w0 -> sub_2
+	w7 -> sub_2
 	mul_3 [label=mul fillcolor=lightyellow shape=box style=filled]
-	w0 -> mul_3
+	w7 -> mul_3
 	sub_2 -> mul_3
 	"lit:0" [label="lit:0" fillcolor=lightgray shape=circle style=filled]
 	assert_2 [label="==" fillcolor=orange shape=diamond style=filled]
 	mul_3 -> assert_2
 	lit:0 -> assert_2
 	"lit:1" [label="lit:1" fillcolor=lightgray shape=circle style=filled]
-	w0 [label=w0 fillcolor=lightblue shape=doublecircle style=filled]
+	w7 [label=w7 fillcolor=lightblue shape=doublecircle style=filled]
 	sub_4 [label=sub fillcolor=lightyellow shape=box style=filled]
 	lit:1 -> sub_4
-	w0 -> sub_4
-	"lit:1" [label="lit:1" fillcolor=lightgray shape=circle style=filled]
-	"lit:1" [label="lit:1" fillcolor=lightgray shape=circle style=filled]
+	w7 -> sub_4
+	w6 [label=w6 fillcolor=lightblue shape=doublecircle style=filled]
+	"lit:5" [label="lit:5" fillcolor=lightgray shape=circle style=filled]
 	sub_5 [label=sub fillcolor=lightyellow shape=box style=filled]
-	lit:1 -> sub_5
-	lit:1 -> sub_5
-	w1 [label=w1 fillcolor=lightblue shape=doublecircle style=filled]
+	w6 -> sub_5
+	lit:5 -> sub_5
+	w8 [label=w8 fillcolor=lightblue shape=doublecircle style=filled]
 	mul_6 [label=mul fillcolor=lightyellow shape=box style=filled]
 	sub_5 -> mul_6
-	w1 -> mul_6
+	w8 -> mul_6
 	assert_3 [label="==" fillcolor=orange shape=diamond style=filled]
 	sub_4 -> assert_3
 	mul_6 -> assert_3
-	w0 [label=w0 fillcolor=lightblue shape=doublecircle style=filled]
-	"lit:1" [label="lit:1" fillcolor=lightgray shape=circle style=filled]
-	"lit:1" [label="lit:1" fillcolor=lightgray shape=circle style=filled]
+	w7 [label=w7 fillcolor=lightblue shape=doublecircle style=filled]
+	w6 [label=w6 fillcolor=lightblue shape=doublecircle style=filled]
+	"lit:5" [label="lit:5" fillcolor=lightgray shape=circle style=filled]
 	sub_7 [label=sub fillcolor=lightyellow shape=box style=filled]
-	lit:1 -> sub_7
-	lit:1 -> sub_7
+	w6 -> sub_7
+	lit:5 -> sub_7
 	mul_8 [label=mul fillcolor=lightyellow shape=box style=filled]
-	w0 -> mul_8
+	w7 -> mul_8
 	sub_7 -> mul_8
 	"lit:0" [label="lit:0" fillcolor=lightgray shape=circle style=filled]
 	assert_4 [label="==" fillcolor=orange shape=diamond style=filled]
 	mul_8 -> assert_4
 	lit:0 -> assert_4
+	"lit:7" [label="lit:7" fillcolor=lightgray shape=circle style=filled]
+	"lit:2" [label="lit:2" fillcolor=lightgray shape=circle style=filled]
+	sub_9 [label=sub fillcolor=lightyellow shape=box style=filled]
+	lit:7 -> sub_9
+	lit:2 -> sub_9
+	w6 [label=w6 fillcolor=lightblue shape=doublecircle style=filled]
+	assert_5 [label="==" fillcolor=orange shape=diamond style=filled]
+	sub_9 -> assert_5
+	w6 -> assert_5
+	"lit:3" [label="lit:3" fillcolor=lightgray shape=circle style=filled]
+	"lit:1" [label="lit:1" fillcolor=lightgray shape=circle style=filled]
+	add_10 [label=add fillcolor=lightyellow shape=box style=filled]
+	lit:3 -> add_10
+	lit:1 -> add_10
+	w5 [label=w5 fillcolor=lightblue shape=doublecircle style=filled]
+	assert_6 [label="==" fillcolor=orange shape=diamond style=filled]
+	add_10 -> assert_6
+	w5 -> assert_6
+	w4 [label=w4 fillcolor=lightblue shape=doublecircle style=filled]
+	"lit:1" [label="lit:1" fillcolor=lightgray shape=circle style=filled]
+	assert_7 [label="==" fillcolor=orange shape=diamond style=filled]
+	w4 -> assert_7
+	lit:1 -> assert_7
+	w4 [label=w4 fillcolor=lightblue shape=doublecircle style=filled]
+	"lit:1" [label="lit:1" fillcolor=lightgray shape=circle style=filled]
+	w4 [label=w4 fillcolor=lightblue shape=doublecircle style=filled]
+	sub_11 [label=sub fillcolor=lightyellow shape=box style=filled]
+	lit:1 -> sub_11
+	w4 -> sub_11
+	mul_12 [label=mul fillcolor=lightyellow shape=box style=filled]
+	w4 -> mul_12
+	sub_11 -> mul_12
+	"lit:0" [label="lit:0" fillcolor=lightgray shape=circle style=filled]
+	assert_8 [label="==" fillcolor=orange shape=diamond style=filled]
+	mul_12 -> assert_8
+	lit:0 -> assert_8
+	w4 [label=w4 fillcolor=lightblue shape=doublecircle style=filled]
+	"lit:1" [label="lit:1" fillcolor=lightgray shape=circle style=filled]
+	w4 [label=w4 fillcolor=lightblue shape=doublecircle style=filled]
+	sub_13 [label=sub fillcolor=lightyellow shape=box style=filled]
+	lit:1 -> sub_13
+	w4 -> sub_13
+	mul_14 [label=mul fillcolor=lightyellow shape=box style=filled]
+	w4 -> mul_14
+	sub_13 -> mul_14
+	"lit:0" [label="lit:0" fillcolor=lightgray shape=circle style=filled]
+	assert_9 [label="==" fillcolor=orange shape=diamond style=filled]
+	mul_14 -> assert_9
+	lit:0 -> assert_9
+	w3 [label=w3 fillcolor=lightblue shape=doublecircle style=filled]
+	"lit:1" [label="lit:1" fillcolor=lightgray shape=circle style=filled]
+	mul_15 [label=mul fillcolor=lightyellow shape=box style=filled]
+	w3 -> mul_15
+	lit:1 -> mul_15
+	w4 [label=w4 fillcolor=lightblue shape=doublecircle style=filled]
+	assert_10 [label="==" fillcolor=orange shape=diamond style=filled]
+	mul_15 -> assert_10
+	w4 -> assert_10
+	w3 [label=w3 fillcolor=lightblue shape=doublecircle style=filled]
+	"lit:1" [label="lit:1" fillcolor=lightgray shape=circle style=filled]
+	w3 [label=w3 fillcolor=lightblue shape=doublecircle style=filled]
+	sub_16 [label=sub fillcolor=lightyellow shape=box style=filled]
+	lit:1 -> sub_16
+	w3 -> sub_16
+	mul_17 [label=mul fillcolor=lightyellow shape=box style=filled]
+	w3 -> mul_17
+	sub_16 -> mul_17
+	"lit:0" [label="lit:0" fillcolor=lightgray shape=circle style=filled]
+	assert_11 [label="==" fillcolor=orange shape=diamond style=filled]
+	mul_17 -> assert_11
+	lit:0 -> assert_11
+	"lit:1" [label="lit:1" fillcolor=lightgray shape=circle style=filled]
+	"lit:0" [label="lit:0" fillcolor=lightgray shape=circle style=filled]
+	sub_18 [label=sub fillcolor=lightyellow shape=box style=filled]
+	lit:1 -> sub_18
+	lit:0 -> sub_18
+	w3 [label=w3 fillcolor=lightblue shape=doublecircle style=filled]
+	assert_12 [label="==" fillcolor=orange shape=diamond style=filled]
+	sub_18 -> assert_12
+	w3 -> assert_12
+	"lit:0" [label="lit:0" fillcolor=lightgray shape=circle style=filled]
+	"lit:1" [label="lit:1" fillcolor=lightgray shape=circle style=filled]
+	"lit:0" [label="lit:0" fillcolor=lightgray shape=circle style=filled]
+	sub_19 [label=sub fillcolor=lightyellow shape=box style=filled]
+	lit:1 -> sub_19
+	lit:0 -> sub_19
+	mul_20 [label=mul fillcolor=lightyellow shape=box style=filled]
+	lit:0 -> mul_20
+	sub_19 -> mul_20
+	"lit:0" [label="lit:0" fillcolor=lightgray shape=circle style=filled]
+	assert_13 [label="==" fillcolor=orange shape=diamond style=filled]
+	mul_20 -> assert_13
+	lit:0 -> assert_13
+	w1 [label=w1 fillcolor=lightblue shape=doublecircle style=filled]
+	"lit:1" [label="lit:1" fillcolor=lightgray shape=circle style=filled]
+	assert_14 [label="==" fillcolor=orange shape=diamond style=filled]
+	w1 -> assert_14
+	lit:1 -> assert_14
+	w1 [label=w1 fillcolor=lightblue shape=doublecircle style=filled]
+	"lit:1" [label="lit:1" fillcolor=lightgray shape=circle style=filled]
+	w1 [label=w1 fillcolor=lightblue shape=doublecircle style=filled]
+	sub_21 [label=sub fillcolor=lightyellow shape=box style=filled]
+	lit:1 -> sub_21
+	w1 -> sub_21
+	mul_22 [label=mul fillcolor=lightyellow shape=box style=filled]
+	w1 -> mul_22
+	sub_21 -> mul_22
+	"lit:0" [label="lit:0" fillcolor=lightgray shape=circle style=filled]
+	assert_15 [label="==" fillcolor=orange shape=diamond style=filled]
+	mul_22 -> assert_15
+	lit:0 -> assert_15
+	w1 [label=w1 fillcolor=lightblue shape=doublecircle style=filled]
+	"lit:1" [label="lit:1" fillcolor=lightgray shape=circle style=filled]
+	w1 [label=w1 fillcolor=lightblue shape=doublecircle style=filled]
+	sub_23 [label=sub fillcolor=lightyellow shape=box style=filled]
+	lit:1 -> sub_23
+	w1 -> sub_23
+	mul_24 [label=mul fillcolor=lightyellow shape=box style=filled]
+	w1 -> mul_24
+	sub_23 -> mul_24
+	"lit:0" [label="lit:0" fillcolor=lightgray shape=circle style=filled]
+	assert_16 [label="==" fillcolor=orange shape=diamond style=filled]
+	mul_24 -> assert_16
+	lit:0 -> assert_16
+	"lit:1" [label="lit:1" fillcolor=lightgray shape=circle style=filled]
+	w1 [label=w1 fillcolor=lightblue shape=doublecircle style=filled]
+	sub_25 [label=sub fillcolor=lightyellow shape=box style=filled]
+	lit:1 -> sub_25
+	w1 -> sub_25
+	w0 [label=w0 fillcolor=lightblue shape=doublecircle style=filled]
+	"lit:3" [label="lit:3" fillcolor=lightgray shape=circle style=filled]
+	sub_26 [label=sub fillcolor=lightyellow shape=box style=filled]
+	w0 -> sub_26
+	lit:3 -> sub_26
+	w2 [label=w2 fillcolor=lightblue shape=doublecircle style=filled]
+	mul_27 [label=mul fillcolor=lightyellow shape=box style=filled]
+	sub_26 -> mul_27
+	w2 -> mul_27
+	assert_17 [label="==" fillcolor=orange shape=diamond style=filled]
+	sub_25 -> assert_17
+	mul_27 -> assert_17
+	w1 [label=w1 fillcolor=lightblue shape=doublecircle style=filled]
+	w0 [label=w0 fillcolor=lightblue shape=doublecircle style=filled]
+	"lit:3" [label="lit:3" fillcolor=lightgray shape=circle style=filled]
+	sub_28 [label=sub fillcolor=lightyellow shape=box style=filled]
+	w0 -> sub_28
+	lit:3 -> sub_28
+	mul_29 [label=mul fillcolor=lightyellow shape=box style=filled]
+	w1 -> mul_29
+	sub_28 -> mul_29
+	"lit:0" [label="lit:0" fillcolor=lightgray shape=circle style=filled]
+	assert_18 [label="==" fillcolor=orange shape=diamond style=filled]
+	mul_29 -> assert_18
+	lit:0 -> assert_18
+	"lit:1" [label="lit:1" fillcolor=lightgray shape=circle style=filled]
+	"lit:2" [label="lit:2" fillcolor=lightgray shape=circle style=filled]
+	add_30 [label=add fillcolor=lightyellow shape=box style=filled]
+	lit:1 -> add_30
+	lit:2 -> add_30
+	w0 [label=w0 fillcolor=lightblue shape=doublecircle style=filled]
+	assert_19 [label="==" fillcolor=orange shape=diamond style=filled]
+	add_30 -> assert_19
+	w0 -> assert_19
 }

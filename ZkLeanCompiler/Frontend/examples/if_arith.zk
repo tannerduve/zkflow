@@ -1,0 +1,2 @@
+if true then 3 * 3 else 4 * 4
+# witness [1, 16, 9]

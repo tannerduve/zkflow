@@ -141,19 +141,21 @@ lemma get_last {α} {l₁ l₂ : List α} {x : α} [Inhabited α] :
 lemma zk_semantics_equiv [JoltField F]
  (w : List F)
  (expr : ZKExpr F) (v : Value F)
- (h : ZKEval w expr v) : semantics_zkexpr expr w = v := by
-  induction' h with v id h va vb a b ha hb ih₁ ih₂ va vb a b ha hb ih₁ ih₂ e a ha ih va vb a b ha hb ih₁ ih₂ va vb a b ha hb ih₁ ih₂ va vb a b ha hb ih₁ ih₂ ih₃
-  case lit =>
-    simp [semantics_zkexpr, semantics_zkexpr.eval]
-  case witvar =>
-    simp [semantics_zkexpr, semantics_zkexpr.eval]; exact h
-  case neg =>
-    simp [semantics_zkexpr, semantics_zkexpr.eval] at *
-    simp [ih]
-  all_goals {
-    simp [semantics_zkexpr, semantics_zkexpr.eval] at *; simp [ih₁, ih₂];
-    try simp [ih₂, ih₃]
-    }
+  : ZKEval w expr v → semantics_zkexpr expr w = v := by
+  · intro h
+    induction' h with v id h va vb a b ha hb ih₁ ih₂ va vb a b ha hb ih₁ ih₂ e a ha ih va vb a b ha hb ih₁ ih₂ va vb a b ha hb ih₁ ih₂ va vb a b ha hb ih₁ ih₂ ih₃
+    case lit =>
+      simp [semantics_zkexpr, semantics_zkexpr.eval]
+    case witvar =>
+      simp [semantics_zkexpr, semantics_zkexpr.eval]; exact h
+    case neg =>
+      simp [semantics_zkexpr, semantics_zkexpr.eval] at *
+      simp [ih]
+    all_goals {
+      simp [semantics_zkexpr, semantics_zkexpr.eval] at *; try simp [ih₁, ih₂];
+      try simp [ih₂, ih₃]
+      }
+
 ----------------------------- WELL SCOPED LEMMAS -----------------------------
 /-
 These lemmas are each of the form `wellScoped t env → wellScoped (Term.op t) env` where op is some
@@ -271,8 +273,7 @@ lemma weakening (env : Env F) (x₁ x₂ : String) (v : Val F) :
   symm at hne
   simp [Env.insert, hne]
 
-lemma wellScoped_iff_lett_wellScoped (x : String) (t₁ t₂ : Term F) (env : Env F) (v : Val F)
-  (heval : Eval F t₁ env v) :
+lemma wellScoped_iff_lett_wellScoped (x : String) (t₁ t₂ : Term F) (env : Env F) (v : Val F) :
   wellScoped t₁ env ∧ wellScoped t₂ (Env.insert x v env) →
   wellScoped (Term.lett x t₁ t₂) env := by
   intro h
@@ -798,15 +799,19 @@ theorem compiler_preserves_eval :
         rw [← lem]
         simp
         simp [compiledExpr, compileExpr, bind, StateT.bind]
-        let (a, s) := compileExpr t₁ env' initialZKBuilderState
-        simp
-        let (a₁, s₁) := compileExpr t₂ env' s
-        simp [liftOpM, bind, StateT.bind]
-        let (a₂, s₂) := Witnessable.witness s₁
-        simp
-        let (a3, s3) := constrainEq (ArithBinOp.add.toZKExpr a a₁) a₂ s₂
-        simp; simp [pure, StateT.pure]
-        sorry
+        simp [compileExpr, liftOpM] at hw₁ hw₂
+        dsimp [compileExpr, liftOpM, bind, StateT.bind, ArithBinOp.toZKExpr]
+        cases h₁ : compileExpr t₁ env' initialZKBuilderState
+        case mk fst snd =>
+          simp
+          cases h₂ : compileExpr t₂ env' snd
+          case mk fst' snd' =>
+            simp
+            have hw₁' : ZKEval w₁ fst (Value.VField n₁) := by
+              simpa [h₁] using hw₁
+            have hw₂' : ZKEval w₂ fst' (Value.VField n₂) := by
+              sorry
+            sorry
       sorry
       sorry
     all_goals sorry

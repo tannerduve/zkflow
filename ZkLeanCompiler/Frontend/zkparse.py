@@ -26,7 +26,8 @@ TOKEN_SPEC = [
     ("OP",       r'==|&&|\|\||[+\-*!=]'),
     ("DELIM",    r'[(){};,]'),
     ("SKIP",     r'[ \t\n]+'),
-    ("MISMATCH", r'.'),
+    ("COMMENT",  r'#.*'),
+    ("MISMATCH", r'.')
 ]
 REGEX = re.compile('|'.join(f'(?P<{n}>{p})' for n, p in TOKEN_SPEC))
 
@@ -35,7 +36,7 @@ def tokenize(src: str) -> list[Token]:
     for m in REGEX.finditer(src):
         kind = m.lastgroup
         lex  = m.group()
-        if kind == "SKIP":
+        if kind in ("SKIP", "COMMENT"):
             continue
         if kind == "IDENT" and lex in KEYWORDS:
             toks.append(Token("KEYWORD", lex))
