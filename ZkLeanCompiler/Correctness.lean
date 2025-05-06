@@ -138,6 +138,22 @@ lemma get_last {α} {l₁ l₂ : List α} {x : α} [Inhabited α] :
   (l₁ ++ l₂ ++ [x])[(l₁.length + l₂.length)]! = x := by
   simp
 
+lemma zk_semantics_equiv [JoltField F]
+ (w : List F)
+ (expr : ZKExpr F) (v : Value F)
+ (h : ZKEval w expr v) : semantics_zkexpr expr w = v := by
+  induction' h with v id h va vb a b ha hb ih₁ ih₂ va vb a b ha hb ih₁ ih₂ e a ha ih va vb a b ha hb ih₁ ih₂ va vb a b ha hb ih₁ ih₂ va vb a b ha hb ih₁ ih₂ ih₃
+  case lit =>
+    simp [semantics_zkexpr, semantics_zkexpr.eval]
+  case witvar =>
+    simp [semantics_zkexpr, semantics_zkexpr.eval]; exact h
+  case neg =>
+    simp [semantics_zkexpr, semantics_zkexpr.eval] at *
+    simp [ih]
+  all_goals {
+    simp [semantics_zkexpr, semantics_zkexpr.eval] at *; simp [ih₁, ih₂];
+    try simp [ih₂, ih₃]
+    }
 ----------------------------- WELL SCOPED LEMMAS -----------------------------
 /-
 These lemmas are each of the form `wellScoped t env → wellScoped (Term.op t) env` where op is some
@@ -220,9 +236,10 @@ lemma wellScoped_of_eq_wellScoped (t₁ t₂ : Term F) (env : Env F) :
     specialize h (Or.inr xfree)
     exact h
 
-lemma wellScoped_of_ifz_wellScoped (t₁ t₂ t₃ : Term F) (env : Env F) :
-  wellScoped t₁ env ∧ wellScoped t₂ env ∧ wellScoped t₃ env →
+lemma wellScoped_iff_ifz_wellScoped (t₁ t₂ t₃ : Term F) (env : Env F) :
+  wellScoped t₁ env ∧ wellScoped t₂ env ∧ wellScoped t₃ env ↔
   wellScoped (Term.ifz t₁ t₂ t₃) env := by
+  constructor
   intro h
   cases' h with h₁ h₂
   cases' h₂ with h₂l h₂r
@@ -239,6 +256,13 @@ lemma wellScoped_of_ifz_wellScoped (t₁ t₂ t₃ : Term F) (env : Env F) :
   exact h₂l
   specialize h₂r x rt
   exact h₂r
+  intro h
+  simp [wellScoped] at h; simp [freeVars] at h
+  constructor
+  simp [wellScoped]; intro x xin; (specialize h x (Or.inl xin)); exact h
+  constructor
+  simp [wellScoped]; intro x xin; (specialize h x (Or.inr (Or.inl xin))); exact h
+  simp [wellScoped]; intro x xin; (specialize h x (Or.inr (Or.inr xin))); exact h
 
 lemma weakening (env : Env F) (x₁ x₂ : String) (v : Val F) :
   x₁ ≠ x₂ →
@@ -310,6 +334,7 @@ lemma wellScoped_iff_seq_wellScoped (t₁ t₂ : Term F) (env : Env F) :
   simp [freeVars] at h
   specialize h x (Or.inl xin)
   exact h
+  intro x xin; simp [freeVars] at h; (specialize h x (Or.inr xin)); exact h
 
 lemma wellScoped_iff_assert_wellScoped (t₁ t₂ : Term F) (env : Env F) :
   ((wellScoped t₁ env) ∧ (wellScoped t₂ env)) ↔ wellScoped (Term.assert t₁ t₂) env := by
@@ -499,6 +524,21 @@ lemma compileExpr_constraints_append
       sorry
     all_goals { sorry }
 
+lemma zk_distrib_lemma (w : List F) (e₁ e₂ : ZKExpr F) (a b : F) (op : ArithBinOp)
+(h₁ : semantics_zkexpr e₁ w = (Value.VField a))
+(h₂ : semantics_zkexpr e₂ w = (Value.VField b))
+ :
+semantics_zkexpr (op.toZKExpr e₁ e₂) w = op.toFieldOp (semantics_zkexpr e₁ w) (semantics_zkexpr e₂ w) := by
+apply zk_semantics_equiv
+induction op
+· simp [ArithBinOp.toZKExpr, ArithBinOp.toFieldOp]
+  simp only [h₁, h₂]
+  apply ZKEval.add
+  simp [semantics_zkexpr, semantics_zkexpr.eval] at h₁ h₂
+  sorry
+  sorry
+all_goals sorry
+
 /--
 Correctness of the constraint compiler.
 
@@ -595,7 +635,6 @@ theorem compileExpr_correct :
               have lem1 : semantics_zkexpr (compileExpr t₁ env' initialZKBuilderState).1 witness₁ = semantics_zkexpr (compileExpr t₁ env' initialZKBuilderState).1 (witness₁ ++ (witness₂ ++ [f₁ + f₂])) := by {
                 apply semantics_zkexpr_suffix_irrelevant
                 intro i iin
-
                 sorry
               }
               sorry
@@ -710,3 +749,67 @@ theorem compileExpr_correct :
           cases' h₂ with csem₂ h₂'
           sorry
         sorry
+
+theorem compiler_preserves_eval :
+∀ (t : Term F) (env : Env F) (v : Val F),
+    wellScoped t env →
+    Eval F t env v →
+    ∃ (witness : List F),
+      let (compiledExpr, st) := (compileExpr t env) initialZKBuilderState
+      ZKEval witness compiledExpr v.toValue := by
+    intro t env v wellscoped heval
+    induction heval
+    · case var env' x' v' lookup =>
+      let v'' := env'.lookup x'
+      have hLookup' : v'' = some v' := by
+        simp [v'', lookup]
+      let ⟨compiled, st⟩ := (compileExpr (Term.var x') env).run initialZKBuilderState
+      simp [compileExpr, lookup]
+      cases v'
+      · case Field n =>
+        simp [Val.toValue, pure, StateT.pure]
+        use [n]
+        constructor
+      · case Bool b =>
+        simp [Val.toValue, pure, StateT.pure]
+        use [1]
+        constructor
+    · case lit env' n =>
+      let compiled := ((compileExpr (Term.lit n) env).run initialZKBuilderState).1
+      let st := ((compileExpr (Term.lit n) env).run initialZKBuilderState).2
+      simp [compileExpr, Val.toValue, semantics_zkexpr]
+      use [n]
+      constructor
+    · case bool env' b =>
+      let compiled := ((compileExpr (Term.bool b) env).run initialZKBuilderState).1
+      let st := ((compileExpr (Term.bool b) env).run initialZKBuilderState).2
+      simp [compileExpr]
+      simp [Val.toValue, semantics_zkexpr]
+      use [if b then 1 else 0]
+      constructor
+    · case arith env' op t₁ t₂ n₁ n₂ ha hb ih₁ ih₂ =>
+      have well : wellScoped t₁ env' ∧ wellScoped t₂ env' := by
+        {
+          rw [← wellScoped_iff_arith_binop]
+          exact wellscoped
+        }
+      cases' well with welllt wellrt
+      specialize ih₁ welllt
+      specialize ih₂ wellrt
+      cases' ih₁ with w₁ hw₁
+      cases' ih₂ with w₂ hw₂
+      cases op
+      · use (w₁ ++ w₂ ++ [n₁ + n₂])
+        let compiledExpr := (compileExpr (Term.arith ArithBinOp.add t₁ t₂) env' initialZKBuilderState).1
+        let st := (compileExpr (Term.arith ArithBinOp.add t₁ t₂) env' initialZKBuilderState).2
+        have lem : (compiledExpr, st) = compileExpr (Term.arith ArithBinOp.add t₁ t₂) env' initialZKBuilderState := by
+          ext
+          · simp [compiledExpr]
+          · simp [st]
+        simp only [lem]
+        rw [← lem]
+        simp
+        simp [compiledExpr, compileExpr, bind, StateT.bind]
+        let (a, s) := compileExpr t₁ env' initialZKBuilderState
+        let (a₁, s₁) := compileExpr t₂ env' s
+        simp

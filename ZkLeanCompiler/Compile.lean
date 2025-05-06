@@ -13,13 +13,34 @@ def withBinding (x : String) (v : ZKExpr f) (m : ZKBuilder f α) : ZKBuilder f �
   modify fun st' => { st' with env := oldEnv }
   return result
 
-def ArithBinOp.toZKExpr {f}
+def ArithBinOp.toZKExpr {f} [Field f]
 (op : ArithBinOp) :
 ZKExpr f → ZKExpr f → ZKExpr f :=
   match op with
   | .add => ZKExpr.Add
   | .sub => ZKExpr.Sub
   | .mul => ZKExpr.Mul
+
+
+def ArithBinOp.toFieldOp [JoltField f]
+(op : ArithBinOp) :
+Value f → Value f → Value f :=
+  match op with
+  | .add => (λ a b =>
+              match a, b with
+              | Value.VField a, Value.VField b => (Value.VField (a + b))
+              | _, _ => Value.None
+              )
+  | .sub => (λ a b =>
+              match a, b with
+              | Value.VField a, Value.VField b => (Value.VField (a - b))
+              | _, _ => Value.None
+              )
+  | .mul => (λ a b =>
+              match a, b with
+              | Value.VField a, Value.VField b => (Value.VField (a * b))
+              | _, _ => Value.None
+              )
 
 def BoolBinOp.liftM
     {f} [Field f] [JoltField f] [DecidableEq f] :

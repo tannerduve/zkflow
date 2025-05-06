@@ -27,7 +27,7 @@ def semantics_zkexpr [JoltField f] (exprs: ZKExpr f) (witness: List f) : Value f
     | ZKExpr.Literal lit => Value.VField lit
     | ZKExpr.WitnessVar id =>
       if id < witness.length
-      then Value.VField (witness.get! id)
+      then Value.VField (witness[id]!)
       else Value.None
     | ZKExpr.Add lhs rhs =>
       let a := eval lhs
@@ -70,6 +70,38 @@ def semantics_zkexpr [JoltField f] (exprs: ZKExpr f) (witness: List f) : Value f
         Value.VField (evalComposedLookupTableArgs h table va vb)
       | _, _ => Value.None
   eval exprs
+
+/-
+A relational version of the operational semantics
+-/
+inductive ZKEval [JoltField f] : List f → ZKExpr f → Value f → Prop
+| lit {witness} : ∀ (v : f), ZKEval witness (ZKExpr.Literal v) (Value.VField v)
+| witvar {witness} : ∀ (id : ℕ),
+  id < witness.length →
+  ZKEval witness (ZKExpr.WitnessVar id) (Value.VField (witness[id]?.getD default))
+| add {witness} : ∀ (lt rt : ZKExpr f) (a b : f),
+  ZKEval witness lt (Value.VField a) →
+  ZKEval witness rt (Value.VField b) →
+  ZKEval witness (ZKExpr.Add lt rt) (Value.VField (a + b))
+| sub {witness} : ∀ (lt rt : ZKExpr f) (a b : f),
+  ZKEval witness lt (Value.VField a) →
+  ZKEval witness rt (Value.VField b) →
+  ZKEval witness (ZKExpr.Sub lt rt) (Value.VField (a - b))
+| neg {witness} : ∀ (e : ZKExpr f) (a : f),
+  ZKEval witness e (Value.VField a) →
+  ZKEval witness (ZKExpr.Neg e) (Value.VField (- a))
+| mul {witness} : ∀ (lt rt : ZKExpr f) (a b : f),
+  ZKEval witness lt (Value.VField a) →
+  ZKEval witness rt (Value.VField b) →
+  ZKEval witness (ZKExpr.Mul lt rt) (Value.VField (a * b))
+| eq {witness} : ∀ (lt rt : ZKExpr f) (a b : f),
+  ZKEval witness lt (Value.VField a) →
+  ZKEval witness rt (Value.VField b) →
+  ZKEval witness (ZKExpr.Eq lt rt) (Value.VBool (a == b))
+| lookup {witness va vb} : ∀ (table : ComposedLookupTable f 16 4) (arg1 arg2 : ZKExpr f),
+  ZKEval witness arg1 (Value.VField va) →
+  ZKEval witness arg2 (Value.VField vb) →
+  ZKEval witness (ZKExpr.Lookup table arg1 arg2) (Value.VField (evalComposedLookupTableArgs (Even.add_self 8) table va vb))
 
 def constraints_semantics [JoltField f] (constraints: List (ZKExpr f)) (witness: List f) : Bool :=
   match constraints with
