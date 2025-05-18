@@ -153,3 +153,179 @@ def compileExpr {f} [JoltField f] [DecidableEq f] (t : Term f) (env : Env f) : Z
   | Term.seq t1 t2 => do
     let _ ← compileExpr t1 env
     compileExpr t2 env
+
+inductive Compiles {f} [JoltField f] [DecidableEq f] :
+    Env f → Term f → ZKBuilder f (ZKExpr f) → Prop
+| var_field {env x n} :
+    env.lookup x = some (Val.Field n) →
+    Compiles env (Term.var x) (pure (ZKExpr.Literal n))
+| var_bool  {env x b} :
+    env.lookup x = some (Val.Bool  b) →
+    Compiles env (Term.var x) (pure (ZKExpr.Literal (if b then 1 else 0)))
+| lit       {env n} :
+    Compiles env (Term.lit n) (pure (ZKExpr.Literal n))
+| bool      {env b} :
+    Compiles env (Term.bool b) (pure (ZKExpr.Literal (if b then 1 else 0)))
+| arith {env op t₁ t₂ a b} :
+    Compiles env t₁ a → Compiles env t₂ b →
+    Compiles env (Term.arith op t₁ t₂)
+      (a >>= fun x => b >>= fun y => liftOpM op x y)
+| boolB {env op t₁ t₂ a b} :
+    Compiles env t₁ a → Compiles env t₂ b →
+    Compiles env (Term.boolB op t₁ t₂)
+      (do
+        let x ← a
+        let y ← b
+        BoolBinOp.liftM op x y)
+| eq {env t₁ t₂ a b} :
+    Compiles env t₁ a → Compiles env t₂ b →
+    Compiles env (Term.eq t₁ t₂)
+      (do
+        let x ← a
+        let y ← b
+        let z   ← Witnessable.witness
+        let inv ← Witnessable.witness
+        constrainR1CS z (ZKExpr.Sub x y) (ZKExpr.Literal 0)
+        constrainEq (ZKExpr.Sub (ZKExpr.Literal 1) z) (ZKExpr.Mul (ZKExpr.Sub x y) inv)
+        assertIsBool z
+        pure z)
+| ifz {env c t₁ t₂ ic ia ib} :
+    Compiles env c  ic → Compiles env t₁ ia → Compiles env t₂ ib →
+    Compiles env (Term.ifz c t₁ t₂)
+      (do
+        let cond ← ic
+        let v₁ ← ia
+        let v₂ ← ib
+        assertIsBool cond
+        let out ← Witnessable.witness
+        constrainEq (ZKExpr.Add (ZKExpr.Mul cond v₁)
+                          (ZKExpr.Mul (ZKExpr.Sub (ZKExpr.Literal 1) cond) v₂)) out
+        pure out)
+| not {env e ie} :
+    Compiles env e ie →
+    Compiles env (Term.not e)
+      (do
+        let x ← ie
+        assertIsBool x
+        let z ← Witnessable.witness
+        constrainEq (ZKExpr.Sub (ZKExpr.Literal 1) x) z
+        assertIsBool z
+        pure z)
+| lett_eval {env x t₁ t₂ v body} :
+    eval t₁ env = some v →
+    Compiles (env.insert x v) t₂ body →
+    Compiles env (Term.lett x t₁ t₂) body
+| lett_skip {env x t₁ t₂ body} :
+    eval t₁ env = none →
+    Compiles env t₂ body →
+    Compiles env (Term.lett x t₁ t₂) body
+| inSet {env t ts it} :
+    Compiles env t it →
+    Compiles env (Term.inSet t ts)
+      (do
+        let x ← it
+        let prod ← ts.foldlM
+          (fun acc c => pure (ZKExpr.Mul acc (ZKExpr.Sub x (ZKExpr.Literal c))))
+          (ZKExpr.Literal 1)
+        let b   ← Witnessable.witness
+        let inv ← Witnessable.witness
+        constrainEq (ZKExpr.Mul b prod) (ZKExpr.Literal 0)
+        constrainEq (ZKExpr.Mul prod inv) (ZKExpr.Sub (ZKExpr.Literal 1) b)
+        assertIsBool b
+        pure b)
+| assert {env cond body ic ib} :
+    Compiles env cond ic → Compiles env body ib →
+    Compiles env (Term.assert cond body)
+      (do
+        let c ← ic
+        assertIsBool c
+        constrainEq c (ZKExpr.Literal 1)
+        ib)
+| seq {env t₁ t₂ ia ib} :
+    Compiles env t₁ ia → Compiles env t₂ ib →
+    Compiles env (Term.seq t₁ t₂)
+      (do
+        let _ ← ia
+        ib)
+
+lemma compilers_match
+  {f} (instJF : JoltField f) (instDEq : DecidableEq f)
+  {env t a} :
+  @Compiles f instJF instDEq env t a →
+  @compileExpr f instJF instDEq t env = a := by
+  intros compilesPred
+  induction compilesPred
+  · case var_field env' x n hlookup =>
+    rw [Env.lookup] at hlookup
+    rw [compileExpr]
+    simp [hlookup]
+  · case var_bool env' x b hlookup =>
+    rw [Env.lookup] at hlookup
+    rw [compileExpr]
+    simp [hlookup]
+  · case lit env' n =>
+    rw [compileExpr]
+  · case bool env' b =>
+    rw [compileExpr]
+  · case arith env' op t₁ t₂ a b ha hb =>
+    rw [compileExpr]
+    simp [ha, hb]
+  · case boolB env' op t₁ t₂ a b ha hb =>
+    rw [compileExpr]
+    simp [ha, hb]
+  · case eq env' t₁ t₂ a b ha hb =>
+    rw [compileExpr]
+    simp [ha, hb]
+  · case ifz env c t₁ t₂ ic ia ib ihc iht ihe =>
+      simp [compileExpr, ihc, iht, ihe]
+  · case not env' e ie ha =>
+    rw [compileExpr]
+    simp [ha]
+  · case lett_eval env' x t₁ t₂ v body heval hcomp hexpr =>
+    rw [compileExpr]
+    simp [heval, hcomp]
+    exact hexpr
+  · case lett_skip body env' x t₁ t₂ heval hcomp hexpr =>
+    rw [compileExpr]
+    simp [heval, hcomp]
+    exact hexpr
+  · case inSet env' t ts it hcomp =>
+    rw [compileExpr]
+    simp [hcomp]
+  · case assert env' cond body ic ib hcomp hbody =>
+    rw [compileExpr]
+    simp [hcomp, hbody]
+  · case seq env' t₁ t₂ ia ib ha hb =>
+    rw [compileExpr]
+    simp [ha, hb]
+
+/-
+Prove the CONVERSE of the above theorem is true when the term is well-scoped
+-/
+lemma compiles_match
+  {f} (instJF : JoltField f) (instDEq : DecidableEq f)
+  (env : Env f) (t : Term f) (a : ZKBuilder f (ZKExpr f)) :
+  wellScoped t env →
+  @compileExpr f instJF instDEq t env = a →
+  @Compiles f instJF instDEq env t a := by
+  intro h₁ hcomp
+  induction t
+  · case var x =>
+    simp [compileExpr] at hcomp
+    simp [wellScoped, freeVars] at h₁
+    cases' h₁ with v xenv
+    simp [xenv] at hcomp
+    cases h : v
+    · case intro.Field n =>
+      simp [h] at hcomp
+      rw [← hcomp]
+      apply Compiles.var_field
+      rw [h] at xenv
+      exact xenv
+    · case intro.Bool b =>
+      simp [h] at hcomp
+      rw [← hcomp]
+      apply Compiles.var_bool
+      rw [h] at xenv
+      exact xenv
+  all_goals {sorry}
