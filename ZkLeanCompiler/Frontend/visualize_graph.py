@@ -59,7 +59,6 @@ def build_graph(data):
         dot.node(cmp, f"==", shape="diamond", style="filled", fillcolor="orange")
         dot.edge(lhs, cmp)
         dot.edge(rhs, cmp)
-
     return dot
 
 def main():

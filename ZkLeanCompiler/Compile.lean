@@ -93,7 +93,7 @@ def compileExpr {f} [JoltField f] [DecidableEq f] (t : Term f) (env : Env f) : Z
     -- If a ≠ b, then (a‑b) ≠ 0 ⇒ first constraint forces z = 0
     constrainR1CS z (ZKExpr.Sub a b) (ZKExpr.Literal 0)          -- z·(a‑b) = 0
     -- If a = b, then (a‑b)=0 ⇒ second constraint forces z = 1
-    --    Otherwise it merely defines inv = (a‑b)⁻¹
+    --    Otherwise it defines inv = (a‑b)⁻¹
     constrainEq
       (ZKExpr.Sub (ZKExpr.Literal 1) z)                          -- 1‑z
       (ZKExpr.Mul (ZKExpr.Sub a b) inv)                          -- (a‑b)·inv

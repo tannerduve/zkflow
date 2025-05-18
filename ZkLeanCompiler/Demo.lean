@@ -284,6 +284,8 @@ def failInSetWitness : List ℚ := [4, 3, 0, 1]
   [3, 1, 0, 1, 1, 4, 5, 1, 0]
   (expected := Val.Field 1)
 
+#eval! demo (Term.assert (Term.lit (1 : ℚ) =-= Term.lit 1) (Term.bool true)) [1, 1] (expected := Val.Field 1)
+
 -- Failing tests
 #eval! demo failAssertCheck failAssertWitness (expected := Val.Field 1)
 #eval! demo failBoolCheck failBoolWitness (expected := Val.Field 1)
