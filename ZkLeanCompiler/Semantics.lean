@@ -78,7 +78,7 @@ inductive ZKEval [JoltField f] : List f → ZKExpr f → Value f → Prop
 | lit {witness} : ∀ (v : f), ZKEval witness (ZKExpr.Literal v) (Value.VField v)
 | witvar {witness} : ∀ (id : ℕ),
   id < witness.length →
-  ZKEval witness (ZKExpr.WitnessVar id) (Value.VField (witness[id]?.getD default))
+  ZKEval witness (ZKExpr.WitnessVar id) (Value.VField (witness[id]!))
 | add {witness} : ∀ (lt rt : ZKExpr f) (a b : f),
   ZKEval witness lt (Value.VField a) →
   ZKEval witness rt (Value.VField b) →

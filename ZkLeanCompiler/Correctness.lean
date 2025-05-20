@@ -517,7 +517,7 @@ lemma zk_distrib_lemma (w : List F) (e₁ e₂ : ZKExpr F) (a b : F) (op : Arith
 (h₁ : semantics_zkexpr e₁ w = (Value.VField a))
 (h₂ : semantics_zkexpr e₂ w = (Value.VField b))
  :
-semantics_zkexpr (op.toZKExpr e₁ e₂) w = op.toFieldOp (semantics_zkexpr e₁ w) (semantics_zkexpr e₂ w) := by
+semantics_zkexpr (op.toZKExpr e₁ e₂) w = op.toValOp (semantics_zkexpr e₁ w) (semantics_zkexpr e₂ w) := by
 apply zk_semantics_equiv
 induction op
 · simp [ArithBinOp.toZKExpr, ArithBinOp.toFieldOp]
@@ -815,3 +815,289 @@ theorem compiler_preserves_eval :
       sorry
       sorry
     all_goals sorry
+
+lemma ZKEval_liftOpM_arith
+  {f} [JoltField f] (op : ArithBinOp)
+  (a b : ZKExpr f) (na nb : f) (w₁ w₂ : List f) :
+  ZKEval w₁ a (Value.VField na) →
+  ZKEval w₂ b (Value.VField nb) →
+  let n := op.toFieldOp na nb
+  let w := w₁ ++ w₂ ++ [n]
+  let idx := w.length - 1
+  ZKEval w (ZKExpr.WitnessVar idx) (Value.VField n) := by
+  intro hw₁ hw₂
+  induction op
+  · case add =>
+    simp [ZKEval, ArithBinOp.toFieldOp] at hw₁ hw₂ ⊢
+    let w := w₁ ++ w₂ ++ [na + nb]
+    have wdef : w = w₁ ++ (w₂ ++ [na + nb]) := by
+      simp [w]
+    let idx := w.length - 1
+    have hget : w[idx]! = na + nb := by
+      simp [List.length, idx, w]
+    have : idx = w₁.length + w₂.length := by
+      simp [List.length, idx, w]
+    rw [← this]
+    rw [← wdef, ← hget]
+    apply @ZKEval.witvar _ _ w (idx)
+    simp [idx]; apply Nat.sub_one_lt
+    simp [w]
+  · case sub =>
+    simp [ZKEval, ArithBinOp.toFieldOp] at hw₁ hw₂ ⊢
+    let w := w₁ ++ w₂ ++ [na - nb]
+    have wdef : w = w₁ ++ (w₂ ++ [na - nb]) := by
+      simp [w]
+    let idx := w.length - 1
+    have hget : w[idx]! = na - nb := by
+      simp [List.length, idx, w]
+    have : idx = w₁.length + w₂.length := by
+      simp [List.length, idx, w]
+    rw [← this]
+    rw [← wdef, ← hget]
+    apply @ZKEval.witvar _ _ w (idx)
+    simp [idx]; apply Nat.sub_one_lt
+    simp [w]
+  · case mul =>
+    simp [ZKEval, ArithBinOp.toFieldOp] at hw₁ hw₂ ⊢
+    let w := w₁ ++ w₂ ++ [na * nb]
+    have wdef : w = w₁ ++ (w₂ ++ [na * nb]) := by
+      simp [w]
+    let idx := w.length - 1
+    have hget : w[idx]! = na * nb := by
+      simp [List.length, idx, w]
+    have : idx = w₁.length + w₂.length := by
+      simp [List.length, idx, w]
+    rw [← this]
+    rw [← wdef, ← hget]
+    apply @ZKEval.witvar _ _ w (idx)
+    simp [idx]; apply Nat.sub_one_lt
+    simp [w]
+
+/-
+Stating correctness theorem using the relational compiler
+-/
+theorem compiler_preserves_eval' :
+∀ (t : Term F) (env : Env F) (v : Val F) (compiled : ZKBuilder F (ZKExpr F)),
+    wellScoped t env →
+    Eval F t env v →
+    Compiles env t compiled →
+    ∃ (witness : List F),
+    let compiledExpr := compiled.run initialZKBuilderState |>.1
+    ZKEval witness compiledExpr v.toValue := by
+  intro t env v compiled' wellscoped heval hcomp
+  induction heval generalizing compiled'
+  · case var env' x' v' lookup =>
+    let v'' := env'.lookup x'
+    have hLookup' : v'' = some v' := by
+      simp [v'', lookup]
+    let ⟨compiled, st⟩ := (compileExpr (Term.var x') env).run initialZKBuilderState
+    simp [compileExpr, lookup]
+    cases v'
+    · case Field n =>
+      simp [Val.toValue, pure, StateT.pure]
+      use [n]
+      simp [StateT.run]
+      -- Use the Compiles relation to rewrite compiled' to ZKExpr.Literal n
+      cases hcomp
+      · case h.var_field n' eval' =>
+        simp [pure, StateT.pure]
+        have : n = n' := by
+          rw [lookup] at eval'
+          injection eval' with h; injection h
+        subst this
+        apply ZKEval.lit
+      · case h.var_bool b' eval' =>
+        simp [pure, StateT.pure]
+        have : n = if b' then 1 else 0 := by
+          rw [lookup] at eval'
+          injection eval' with h; injection h
+        subst this
+        apply ZKEval.lit
+    · case Bool b =>
+      simp [Val.toValue, pure, StateT.pure]
+      use [if b then 1 else 0]
+      simp [StateT.run]
+      -- Use the Compiles relation to rewrite compiled' to ZKExpr.Literal n
+      cases hcomp
+      · case h.var_field n' eval' =>
+        simp [pure, StateT.pure]
+        have : (if b then 1 else 0) = n' := by
+          rw [lookup] at eval'
+          injection eval' with h; injection h
+        subst this
+        apply ZKEval.lit
+      · case h.var_bool b' eval' =>
+        simp [pure, StateT.pure]
+        have : (if b then (1 : F) else 0) = if b' then 1 else 0 := by
+          rw [lookup] at eval'
+          injection eval' with h
+          injection h with h'
+          rw [h']
+        have h : ZKExpr.Literal (if b' = true then (1 : F) else 0)
+       = ZKExpr.Literal (if b = true then 1 else 0) := by
+          rw [←this]
+        rw [h]
+        apply ZKEval.lit
+  · case lit env' n =>
+    let compiled := ((compileExpr (Term.lit n) env).run initialZKBuilderState).1
+    let st := ((compileExpr (Term.lit n) env).run initialZKBuilderState).2
+    simp [compileExpr, Val.toValue]
+    use [n]
+    cases v
+    all_goals {
+      simp [StateT.run]
+      -- Use the Compiles relation to rewrite compiled' to ZKExpr.Literal n
+      cases hcomp
+      simp [pure, StateT.pure]
+      apply ZKEval.lit
+    }
+  · case bool env' b =>
+    let compiled := ((compileExpr (Term.bool b) env).run initialZKBuilderState).1
+    let st := ((compileExpr (Term.bool b) env).run initialZKBuilderState).2
+    simp [compileExpr]
+    simp [Val.toValue]
+    use [if b then 1 else 0]
+    cases v
+    all_goals {
+      simp [StateT.run]
+      -- Use the Compiles relation to rewrite compiled' to ZKExpr.Literal n
+      cases hcomp
+      simp [pure, StateT.pure]
+      apply ZKEval.lit
+    }
+  · case arith env' op t₁ t₂ n₁ n₂ ha hb ih₁ ih₂ =>
+    have well : wellScoped t₁ env' ∧ wellScoped t₂ env' := by
+      {
+        rw [← wellScoped_iff_arith_binop]
+        exact wellscoped
+      }
+    cases' well with welllt wellrt
+    cases hcomp
+    · case intro.arith c₁ c₂ h₁ h₂ =>
+      specialize ih₁ c₁ welllt h₁
+      specialize ih₂ c₂ wellrt h₂
+      cases' ih₁ with w₁ hw₁
+      cases' ih₂ with w₂ hw₂
+      use (w₁ ++ w₂ ++ [op.toFieldOp n₁ n₂])
+      simp [StateT.run, bind, StateT.bind]
+      cases op
+      · case h.add =>
+        simp [compileExpr, Val.toValue, ArithBinOp.toFieldOp]
+        sorry
+      all_goals {sorry}
+
+
+  all_goals {
+    sorry
+  }
+
+def compiledExpr (builder : ZKBuilder F (ZKExpr F)) : ZKExpr F :=
+  builder.run initialZKBuilderState |>.1
+
+theorem compiler_preserves_eval'' :
+  ∀ (t : Term F) (env : Env F) (v : Val F) (builder : ZKBuilder F (ZKExpr F)),
+    wellScoped t env →
+    Eval F t env v →
+    Compiles env t builder →
+    ∃ witness, ZKEval witness (compiledExpr builder) v.toValue := by
+  intro t env v compiled' wellscoped heval hcomp
+  induction heval generalizing compiled'
+  · case var env' x' v' lookup =>
+    let v'' := env'.lookup x'
+    have hLookup' : v'' = some v' := by
+      simp [v'', lookup]
+    cases v'
+    · case Field n =>
+      simp [Val.toValue, pure, StateT.pure]
+      use [n]
+      simp [compiledExpr, StateT.run]
+      -- Use the Compiles relation to rewrite compiled' to ZKExpr.Literal n
+      cases hcomp
+      · case h.var_field n' eval' =>
+        simp [pure, StateT.pure]
+        have : n = n' := by
+          rw [lookup] at eval'
+          injection eval' with h; injection h
+        subst this
+        apply ZKEval.lit
+      · case h.var_bool b' eval' =>
+        simp [pure, StateT.pure]
+        have : n = if b' then 1 else 0 := by
+          rw [lookup] at eval'
+          injection eval' with h; injection h
+        subst this
+        apply ZKEval.lit
+    · case Bool b =>
+      simp [Val.toValue, pure, StateT.pure]
+      use [if b then 1 else 0]
+      simp [compiledExpr, StateT.run]
+      -- Use the Compiles relation to rewrite compiled' to ZKExpr.Literal n
+      cases hcomp
+      · case h.var_field n' eval' =>
+        simp [pure, StateT.pure]
+        have : (if b then 1 else 0) = n' := by
+          rw [lookup] at eval'
+          injection eval' with h; injection h
+        subst this
+        apply ZKEval.lit
+      · case h.var_bool b' eval' =>
+        simp [pure, StateT.pure]
+        have : (if b then (1 : F) else 0) = if b' then 1 else 0 := by
+          rw [lookup] at eval'
+          injection eval' with h
+          injection h with h'
+          rw [h']
+        have h : ZKExpr.Literal (if b' = true then (1 : F) else 0)
+       = ZKExpr.Literal (if b = true then 1 else 0) := by
+          rw [←this]
+        rw [h]
+        apply ZKEval.lit
+  · case lit env' n =>
+    let compiled := ((compileExpr (Term.lit n) env).run initialZKBuilderState).1
+    let st := ((compileExpr (Term.lit n) env).run initialZKBuilderState).2
+    simp [compileExpr, Val.toValue]
+    use [n]
+    cases v
+    all_goals {
+      simp [compiledExpr, StateT.run]
+      -- Use the Compiles relation to rewrite compiled' to ZKExpr.Literal n
+      cases hcomp
+      simp [pure, StateT.pure]
+      apply ZKEval.lit
+    }
+  · case bool env' b =>
+    let compiled := ((compileExpr (Term.bool b) env).run initialZKBuilderState).1
+    let st := ((compileExpr (Term.bool b) env).run initialZKBuilderState).2
+    simp [compiledExpr, Val.toValue]
+    use [if b then 1 else 0]
+    cases v
+    all_goals {
+      simp [StateT.run]
+      -- Use the Compiles relation to rewrite compiled' to ZKExpr.Literal n
+      cases hcomp
+      simp [pure, StateT.pure]
+      apply ZKEval.lit
+    }
+  · case arith env' op t₁ t₂ n₁ n₂ ha hb ih₁ ih₂ =>
+    have well : wellScoped t₁ env' ∧ wellScoped t₂ env' := by
+      {
+        rw [← wellScoped_iff_arith_binop]
+        exact wellscoped
+      }
+    cases' well with welllt wellrt
+    cases hcomp
+    · case intro.arith c₁ c₂ h₁ h₂ =>
+      specialize ih₁ c₁ welllt h₁
+      specialize ih₂ c₂ wellrt h₂
+      cases' ih₁ with w₁ hw₁
+      cases' ih₂ with w₂ hw₂
+      use (w₁ ++ w₂ ++ [op.toFieldOp n₁ n₂])
+      simp [StateT.run, bind, StateT.bind]
+      cases op
+      · case h.add =>
+        simp [compiledExpr, Val.toValue, ArithBinOp.toFieldOp, StateT.bind]
+        sorry
+      all_goals {sorry}
+
+
+  all_goals {sorry}

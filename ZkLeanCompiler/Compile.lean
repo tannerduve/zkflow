@@ -21,7 +21,7 @@ ZKExpr f → ZKExpr f → ZKExpr f :=
   | .sub => ZKExpr.Sub
   | .mul => ZKExpr.Mul
 
-def ArithBinOp.toFieldOp [JoltField f]
+def ArithBinOp.toValOp [JoltField f]
 (op : ArithBinOp) :
 Value f → Value f → Value f :=
   match op with
@@ -40,6 +40,13 @@ Value f → Value f → Value f :=
               | Value.VField a, Value.VField b => (Value.VField (a * b))
               | _, _ => Value.None
               )
+
+def ArithBinOp.toFieldOp {f} [Field f] (op : ArithBinOp) :
+  f → f → f :=
+  match op with
+  | .add => (λ a b => a + b)
+  | .sub => (λ a b => a - b)
+  | .mul => (λ a b => a * b)
 
 def BoolBinOp.liftM
     {f} [Field f] [JoltField f] [DecidableEq f] :
