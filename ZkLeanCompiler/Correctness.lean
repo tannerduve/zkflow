@@ -9,6 +9,8 @@ set_option linter.unusedSectionVars false
 
 variable {F} [JoltField F] [DecidableEq F]
 
+open ZKBuilder
+
 /-
 witnessIndices returns the indices of the witness variables in a ZKExpr.
 -/

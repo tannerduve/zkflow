@@ -2,16 +2,10 @@ import «ZkLeanCompiler».LCSemantics
 import «ZkLeanCompiler».Semantics
 import Std.Data.HashMap
 
+open ZKBuilder
+
 def assertIsBool {f} [Field f] (x : ZKExpr f) : ZKBuilder f Unit :=
   constrainR1CS x (ZKExpr.Sub (ZKExpr.Literal 1) x) (ZKExpr.Literal 0)
-
-def withBinding (x : String) (v : ZKExpr f) (m : ZKBuilder f α) : ZKBuilder f α := do
-  let st ← get
-  let oldEnv := st.env
-  set { st with env := oldEnv.insert x v }
-  let result ← m
-  modify fun st' => { st' with env := oldEnv }
-  return result
 
 def ArithBinOp.toZKExpr {f} [Field f]
 (op : ArithBinOp) :
@@ -305,34 +299,3 @@ lemma compilers_match
   · case seq env' t₁ t₂ ia ib ha hb =>
     rw [compileExpr]
     simp [ha, hb]
-
-/-
-Prove the CONVERSE of the above theorem is true when the term is well-scoped
--/
-lemma compiles_match
-  {f} (instJF : JoltField f) (instDEq : DecidableEq f)
-  (env : Env f) (t : Term f) (a : ZKBuilder f (ZKExpr f)) :
-  wellScoped t env →
-  @compileExpr f instJF instDEq t env = a →
-  @Compiles f instJF instDEq env t a := by
-  intro h₁ hcomp
-  induction t
-  · case var x =>
-    simp [compileExpr] at hcomp
-    simp [wellScoped, freeVars] at h₁
-    cases' h₁ with v xenv
-    simp [xenv] at hcomp
-    cases h : v
-    · case intro.Field n =>
-      simp [h] at hcomp
-      rw [← hcomp]
-      apply Compiles.var_field
-      rw [h] at xenv
-      exact xenv
-    · case intro.Bool b =>
-      simp [h] at hcomp
-      rw [← hcomp]
-      apply Compiles.var_bool
-      rw [h] at xenv
-      exact xenv
-  all_goals {sorry}
