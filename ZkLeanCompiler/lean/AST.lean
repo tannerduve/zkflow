@@ -1,5 +1,5 @@
 import Mathlib.Algebra.Field.Defs
-import «ZkLeanCompiler».LookupTable
+import «ZkLeanCompiler».Lean.LookupTable
 
 def Ident := Nat
 deriving instance BEq, Ord, Hashable for Ident

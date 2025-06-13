@@ -56,6 +56,8 @@ Unit is used to represent the absence of a value, for example assert should exec
 inductive Val (f : Type) [Field f] where
 | Field   : f → Val f
 | Bool    : Bool → Val f
+| None    : Val f
+deriving Inhabited
 
 structure Env (f : Type) [Field f] where
   lookup : String → Option (Val f)

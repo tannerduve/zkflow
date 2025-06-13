@@ -1,5 +1,5 @@
-import «ZkLeanCompiler».LCSemantics
-import «ZkLeanCompiler».Semantics
+import «ZkLeanCompiler».Lean.LCSemantics
+import «ZkLeanCompiler».Lean.Semantics
 import Std.Data.HashMap
 
 open ZKBuilder
@@ -15,7 +15,7 @@ ZKExpr f → ZKExpr f → ZKExpr f :=
   | .sub => ZKExpr.Sub
   | .mul => ZKExpr.Mul
 
-def ArithBinOp.toValOp [JoltField f]
+def ArithBinOp.toValueOp [JoltField f]
 (op : ArithBinOp) :
 Value f → Value f → Value f :=
   match op with
@@ -33,6 +33,26 @@ Value f → Value f → Value f :=
               match a, b with
               | Value.VField a, Value.VField b => (Value.VField (a * b))
               | _, _ => Value.None
+              )
+
+def ArithBinOp.toValOp [JoltField f]
+(op : ArithBinOp) :
+Val f → Val f → Val f :=
+  match op with
+  | .add => (λ a b =>
+              match a, b with
+              | Val.Field a, Val.Field b => (Val.Field (a + b))
+              | _, _ => Val.None
+              )
+  | .sub => (λ a b =>
+              match a, b with
+              | Val.Field a, Val.Field b => (Val.Field (a - b))
+              | _, _ => Val.None
+              )
+  | .mul => (λ a b =>
+              match a, b with
+              | Val.Field a, Val.Field b => (Val.Field (a * b))
+              | _, _ => Val.None
               )
 
 def ArithBinOp.toFieldOp {f} [Field f] (op : ArithBinOp) :

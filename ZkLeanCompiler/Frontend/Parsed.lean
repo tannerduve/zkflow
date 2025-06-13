@@ -9,19 +9,12 @@ instance hash : Hashable ℚ where
     let d := q.den
     (n + d).toUInt64
 
-instance witness : Witnessable ℚ (ZKExpr ℚ) where
-  witness := do
-    let st ← get
-    let id := st.allocated_witness_count
-    set { st with allocated_witness_count := id + 1 }
-    pure (ZKExpr.WitnessVar id)
-
 instance : JoltField ℚ where
   toField := inferInstance
   toBEq := inferInstance
   toToString := inferInstance
   toInhabited := inferInstance
-  toWitnessable := witness
+  toWitnessable := inferInstance
   toHashable := hash
   eq_of_beq := by
     intros a b h

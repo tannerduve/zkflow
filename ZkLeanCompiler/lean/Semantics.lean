@@ -1,7 +1,7 @@
 import Mathlib.Algebra.Field.Defs
-import «ZkLeanCompiler».AST
-import «ZkLeanCompiler».Builder
-import «ZkLeanCompiler».LCSyntax
+import «ZkLeanCompiler».Lean.AST
+import «ZkLeanCompiler».Lean.Builder
+import «ZkLeanCompiler».Lean.LCSyntax
 
 class JoltField (f : Type) extends Field f, BEq f, LawfulBEq f, ToString f, Inhabited f, Witnessable f (ZKExpr f), Hashable f
 
@@ -20,6 +20,7 @@ instance {f} [ToString f] [JoltField f] : ToString (Value f) where
 def Val.toValue [JoltField f] : Val f → Value f
   | Val.Field x => Value.VField x
   | Val.Bool b  => Value.VField (if b then 1 else 0)
+  | Val.None    => Value.None
 
 def semantics_zkexpr [JoltField f] (exprs: ZKExpr f) (witness: List f) : Value f :=
   let rec eval (e: ZKExpr f) : Value f :=
