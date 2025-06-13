@@ -3,7 +3,7 @@ import Mathlib.Algebra.Group.Even
 
 def get_chunks [Field f] (val:f) (num_bits: Nat) (num_chunks: Nat): Vector (Vector f num_bits)
 num_chunks :=
-  Vector.replicate num_chunks (Vector.replicate num_bits 0)
+  Vector.ofFn (fun _ => Vector.ofFn (fun _ => 0))
 
 inductive Subtable (f: Type) (n: Nat) where
   | SubtableMLE (mle : Vector f n -> f) : Subtable f n
