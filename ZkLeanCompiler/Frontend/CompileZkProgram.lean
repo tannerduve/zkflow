@@ -1,4 +1,3 @@
-
 import ZkLeanCompiler.Compile
 import ZkLeanCompiler.Frontend.Parsed
 import Mathlib.Algebra.Field.Rat
@@ -22,7 +21,7 @@ def toJson : ZKExpr ℚ → Lean.Json
 
 def main : IO Unit := do
   let env : Env ℚ := { lookup := fun _ => none }
-  let (expr, st) := (compileExpr program env).run initialZKBuilderState
+  let (expr, st) := run (compileExpr program env) initialZKBuilderState
   let constraints : Array Lean.Json := (st.constraints.map toJson).toArray
   let out := Lean.Json.mkObj
               [ ("expr",        toJson expr)

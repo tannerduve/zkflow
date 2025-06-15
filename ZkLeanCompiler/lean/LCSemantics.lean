@@ -1,4 +1,4 @@
-import «ZkLeanCompiler».LCSyntax
+import «ZkLeanCompiler».Lean.LCSyntax
 import Mathlib.Data.Nat.Basic
 open Nat
 
@@ -79,7 +79,7 @@ A functional version of our operational semantics
 def eval {f} [Field f] [BEq f] [DecidableEq f] : Term f → Env f → Option (Val f)
 | Term.var x, env =>
   match env.lookup x with
-  | some (Val.Bool b)  => some (Val.Field (if b then 1 else 0))
+  | some (Val.Bool b)  => some (Val.Bool b)
   | other              => other
 | Term.lit n, _ =>
   some (Val.Field n)
