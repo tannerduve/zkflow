@@ -248,7 +248,6 @@ class Parser:
 # ------------------  Lean code generation  ------------------
 
 def to_lean(t) -> str:
-    # Use explicit type checks instead of Python 3.10's structural pattern-matching
     if isinstance(t, TNum):
         return f"(Term.lit {t.val})"
     elif isinstance(t, TBool):
@@ -256,17 +255,16 @@ def to_lean(t) -> str:
     elif isinstance(t, TVar):
         return f'(Term.var "{t.name}")'
     elif isinstance(t, TBin):
-        op, l, r = t.op, t.left, t.right
         table = {
             "+": "ArithBinOp.add", "-": "ArithBinOp.sub", "*": "ArithBinOp.mul",
             "&&": "BoolBinOp.and", "||": "BoolBinOp.or", "==": None
         }
-        if op == "==":
-            return f"(Term.eq {to_lean(l)} {to_lean(r)})"
-        elif op in ["&&", "||"]:
-            return f"(Term.boolB {table[op]} {to_lean(l)} {to_lean(r)})"
+        if t.op == "==":
+            return f"(Term.eq {to_lean(t.left)} {to_lean(t.right)})"
+        elif t.op in ["&&", "||"]:
+            return f"(Term.boolB {table[t.op]} {to_lean(t.left)} {to_lean(t.right)})"
         else:
-            return f"(Term.arith {table[op]} {to_lean(l)} {to_lean(r)})"
+            return f"(Term.arith {table[t.op]} {to_lean(t.left)} {to_lean(t.right)})"
     elif isinstance(t, TNot):
         return f"(Term.not {to_lean(t.expr)})"
     elif isinstance(t, TLet):
@@ -289,7 +287,7 @@ def emit_lean(code: str, stem: str):
     path.parent.mkdir(parents=True, exist_ok=True)
 
     header = textwrap.dedent("""\
-        import ZkLeanCompiler.Lean.Compile
+        import ZkLeanCompiler.Compile
         import Mathlib.Algebra.Field.Rat
         import Mathlib.Data.Rat.Defs
         open Term
