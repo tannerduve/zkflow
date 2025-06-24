@@ -11,7 +11,6 @@ serde_json = "1.0"
 # stwo = { git = "https://github.com/starkware-libs/stwo.git", branch = "main" }
 stwo-constraint-framework = { git = "https://github.com/starkware-libs/stwo.git", package = "stwo-constraint-framework", rev = "d9ba68bb12ce4cb4e9c1f3a11a559285394094c2" }
 
-
 [[bin]]
 name = "zkprover"
 path = "main.rs"

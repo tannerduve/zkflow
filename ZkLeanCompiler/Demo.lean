@@ -1,4 +1,4 @@
-import ZkLeanCompiler.Compile
+import ZkLeanCompiler.Lean.Compile
 import Mathlib.Data.Rat.Defs
 import Mathlib.Algebra.Field.Rat
 
@@ -90,7 +90,7 @@ def demo {f} [ToString f] [JoltField f] [DecidableEq f]
   IO.println "Program:"
   IO.println (Term.repr program)
   IO.println "\nCompiling..."
-  let (compiled, st) := (compileExpr program env).run initialZKBuilderState
+  let (compiled, st) := runFold (compileExpr program env) initialZKBuilderState
   IO.println "\nCompiled Expression:"
   IO.println (ZKExpr.repr compiled)
   IO.println "\nConstraints:"
@@ -114,16 +114,7 @@ instance hash : Hashable ℚ where
     let d := q.den
     (n + d).toUInt64
 
-instance witness : Witnessable ℚ (ZKExpr ℚ) where
-  witness := do
-    -- allocate a fresh variable *and* return it as the expression,
-    -- but also store the value 1 in the builder state so
-    -- `constraints_semantics` will see `1` there.
-    let st ← get
-    let id := st.allocated_witness_count
-    -- record ‘1’ as the canonical value of that witness
-    set { st with allocated_witness_count := id + 1 }
-    pure (ZKExpr.WitnessVar id)
+instance witness : Witnessable ℚ (ZKExpr ℚ) := inferInstance
 
 instance : JoltField ℚ where
   toField := inferInstance

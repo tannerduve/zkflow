@@ -130,3 +130,32 @@ instance [Witnessable f a] : Witnessable f (Vector a n) where
           let v ← go m
           pure (Vector.push v w)
     go n
+
+def zkOpEval [Zero f] [Inhabited f] (op : ZKOp f β) : StateM (ZKBuilderState f × List f) β :=
+  match op with
+  | ZKOp.AllocWitness => do
+      let (st, wvec) ← get
+      let idx := st.allocated_witness_count
+      let defaultVal : f := default
+      let wvec' := wvec ++ [defaultVal]
+      let st' := { st with allocated_witness_count := idx + 1 }
+      set (st', wvec')
+      pure (ZKExpr.WitnessVar idx)
+  | ZKOp.ConstrainEq x y => do
+      let (st, wvec) ← get
+      let st' := { st with constraints := (ZKExpr.Eq x y) :: st.constraints }
+      set (st', wvec)
+      pure ()
+  | ZKOp.ConstrainR1CS a b c => do
+      let (st, wvec) ← get
+      let st' := { st with constraints := (ZKExpr.Eq (ZKExpr.Mul a b) c) :: st.constraints }
+      set (st', wvec)
+      pure ()
+  | ZKOp.Lookup _ _ => do
+      let (st, wvec) ← get
+      let idx := st.allocated_witness_count
+      let defaultVal : f := default
+      let wvec' := wvec ++ [defaultVal]
+      let st' := { st with allocated_witness_count := idx + 1 }
+      set (st', wvec')
+      pure (ZKExpr.WitnessVar idx)
