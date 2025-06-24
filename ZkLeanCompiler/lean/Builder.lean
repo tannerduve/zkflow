@@ -86,9 +86,37 @@ interpreter derived from `mapM`. -/
 def toStateM [Zero f] {α : Type} (comp : ZKBuilder f α) : StateM (ZKBuilderState f) α :=
   comp.mapM zkOpInterp
 
-/-- Run a `ZKBuilder` program, producing its result and the final state. -/
-def run [Zero f] (p : ZKBuilder f α) (st : ZKBuilderState f) : (α × ZKBuilderState f) :=
-  (toStateM p).run st
+/-- Pure case of the algebra. -/
+def builderPure [Zero f] {α} (a : α) : ZKBuilderState f → (α × ZKBuilderState f) :=
+  fun st => (a, st)
+
+/-
+Bind case: interpret a primitive `ZKOp` and continue the catamorphism. The continuation `k`
+already produces a result given the fresh value from the operation. -/
+def builderStep [Zero f] {α} : {ι : Type} → ZKOp f ι → (ι → ZKBuilderState f → (α × ZKBuilderState f)) → ZKBuilderState f → (α × ZKBuilderState f)
+  | _, ZKOp.AllocWitness, k =>
+      fun st =>
+        let idx := st.allocated_witness_count
+        let st' := { st with allocated_witness_count := idx + 1 }
+        k (ZKExpr.WitnessVar idx) st'
+  | _, (ZKOp.ConstrainEq x y), k =>
+      fun st =>
+        let st' := { st with constraints := (ZKExpr.Eq x y) :: st.constraints }
+        k () st'
+  | _, (ZKOp.ConstrainR1CS a b c), k =>
+      fun st =>
+        let st' := { st with constraints := (ZKExpr.Eq (ZKExpr.Mul a b) c) :: st.constraints }
+        k () st'
+  | _, (ZKOp.Lookup _ _), k =>
+      fun st =>
+        let idx := st.allocated_witness_count
+        let st' := { st with allocated_witness_count := idx + 1 }
+        k (ZKExpr.WitnessVar idx) st'
+
+/-- Run a `ZKBuilder` program, producing its result and the final state.
+   Implemented via `cataFreeM`, i.e. a fold over the free-monad syntax tree. -/
+def runFold [Zero f] (p : ZKBuilder f α) (st : ZKBuilderState f) : (α × ZKBuilderState f) :=
+  FreeM.cataFreeM builderPure builderStep p st
 
 instance : Witnessable f (ZKExpr f) where
   witness := ZKBuilder.witness   -- smart constructor, pure DSL

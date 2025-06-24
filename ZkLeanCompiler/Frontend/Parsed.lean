@@ -1,4 +1,4 @@
-import ZkLeanCompiler.Compile
+import ZkLeanCompiler.Lean.Compile
 import Mathlib.Algebra.Field.Rat
 import Mathlib.Data.Rat.Defs
 open Term

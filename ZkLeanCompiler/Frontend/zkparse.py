@@ -248,30 +248,40 @@ class Parser:
 # ------------------  Lean code generation  ------------------
 
 def to_lean(t) -> str:
-    match t:
-        case TNum(v):      return f"(Term.lit {v})"
-        case TBool(b):     return f"(Term.bool {'true' if b else 'false'})"
-        case TVar(n):      return f'(Term.var "{n}")'
-        case TBin(op, l, r):
-            table = {
-                "+": "ArithBinOp.add", "-": "ArithBinOp.sub", "*": "ArithBinOp.mul",
-                "&&": "BoolBinOp.and", "||": "BoolBinOp.or", "==": None
-            }
-            if op == "==":
-                return f"(Term.eq {to_lean(l)} {to_lean(r)})"
-            elif op in ["&&", "||"]:
-                return f"(Term.boolB {table[op]} {to_lean(l)} {to_lean(r)})"
-            else:
-                return f"(Term.arith {table[op]} {to_lean(l)} {to_lean(r)})"
-        case TNot(e):      return f"(Term.not {to_lean(e)})"
-        case TLet(n, r, b):return f'(Term.lett "{n}" {to_lean(r)} {to_lean(b)})'
-        case TAssert(c, b): return f"(Term.assert {to_lean(c)} {to_lean(b)})"
-        case TSeq(a, b):   return f"(Term.seq {to_lean(a)} {to_lean(b)})"
-        case TIfz(c, t, e):return f"(Term.ifz {to_lean(c)} {to_lean(t)} {to_lean(e)})"
-        case TInSet(elem, xs):
-            xs_lean = ", ".join(xs)
-            return f"(Term.inSet {to_lean(elem)} [{xs_lean}])"
-        case _: raise ValueError("unknown AST node")
+    # Use explicit type checks instead of Python 3.10's structural pattern-matching
+    if isinstance(t, TNum):
+        return f"(Term.lit {t.val})"
+    elif isinstance(t, TBool):
+        return f"(Term.bool {'true' if t.val else 'false'})"
+    elif isinstance(t, TVar):
+        return f'(Term.var "{t.name}")'
+    elif isinstance(t, TBin):
+        op, l, r = t.op, t.left, t.right
+        table = {
+            "+": "ArithBinOp.add", "-": "ArithBinOp.sub", "*": "ArithBinOp.mul",
+            "&&": "BoolBinOp.and", "||": "BoolBinOp.or", "==": None
+        }
+        if op == "==":
+            return f"(Term.eq {to_lean(l)} {to_lean(r)})"
+        elif op in ["&&", "||"]:
+            return f"(Term.boolB {table[op]} {to_lean(l)} {to_lean(r)})"
+        else:
+            return f"(Term.arith {table[op]} {to_lean(l)} {to_lean(r)})"
+    elif isinstance(t, TNot):
+        return f"(Term.not {to_lean(t.expr)})"
+    elif isinstance(t, TLet):
+        return f'(Term.lett "{t.name}" {to_lean(t.rhs)} {to_lean(t.body)})'
+    elif isinstance(t, TAssert):
+        return f"(Term.assert {to_lean(t.cond)} {to_lean(t.body)})"
+    elif isinstance(t, TSeq):
+        return f"(Term.seq {to_lean(t.first)} {to_lean(t.second)})"
+    elif isinstance(t, TIfz):
+        return f"(Term.ifz {to_lean(t.cond)} {to_lean(t.tcase)} {to_lean(t.fcase)})"
+    elif isinstance(t, TInSet):
+        xs_lean = ", ".join(t.choices)
+        return f"(Term.inSet {to_lean(t.elem)} [{xs_lean}])"
+    else:
+        raise ValueError("unknown AST node")
 
 
 def emit_lean(code: str, stem: str):
@@ -279,7 +289,7 @@ def emit_lean(code: str, stem: str):
     path.parent.mkdir(parents=True, exist_ok=True)
 
     header = textwrap.dedent("""\
-        import ZkLeanCompiler.Compile
+        import ZkLeanCompiler.Lean.Compile
         import Mathlib.Algebra.Field.Rat
         import Mathlib.Data.Rat.Defs
         open Term
