@@ -6,7 +6,7 @@ compile_to_circuit.py   —   End‑to‑end demo
                                ▼
                           out.json  (constraints as JSON)
 """
-import subprocess, sys
+import subprocess, sys, json
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]   # project root
@@ -54,7 +54,8 @@ def main : IO Unit := do
   let constraints : Array Lean.Json := (st.constraints.map toJson).toArray
   let out := Lean.Json.mkObj
               [ ("expr",        toJson expr)
-              , ("constraints", Lean.Json.arr constraints) ]
+              , ("constraints", Lean.Json.arr constraints),
+               ("num_witness", Lean.Json.num st.allocated_witness_count) ]
   IO.FS.writeFile "ZkLeanCompiler/Frontend/out.json" (Lean.Json.compress out)
   IO.println (Lean.Json.compress out)
   IO.println "ZK circuit JSON written to ZkLeanCompiler/Frontend/out.json"
@@ -78,6 +79,19 @@ def lake_run():
     ):
         print("Execution failed"); sys.exit(1)
 
+def add_input_metadata(json_path: Path):
+    with json_path.open("r") as f:
+        circuit = json.loads(f.read())
+
+    num = circuit.get("num_witness", 0)
+    circuit["public_inputs"] = []
+    circuit["secret_inputs"] = list(range(num))
+
+    circuit.pop("num_witness", None)  # optional: clean up
+
+    with json_path.open("w") as f:
+        f.write(json.dumps(circuit, separators=(",", ":")))
+
 # --------------------------------------------------------------------
 # 4.  CLI wrapper
 # --------------------------------------------------------------------
@@ -99,6 +113,7 @@ def main():
 
     out = REPO_ROOT / "ZkLeanCompiler/Frontend/out.json"
     if out.exists():
+        add_input_metadata(out)
         print("\n✅  Circuit JSON\n"); print(out.read_text())
     else:
         print("❌  out.json not written")

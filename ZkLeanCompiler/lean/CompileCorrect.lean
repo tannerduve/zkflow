@@ -94,7 +94,7 @@ theorem compile_preserves_semantics
   (a : ZKBuilder F (ZKExpr F)) (e : ZKExpr F) (st₀ st₁ : ZKBuilderState F) :
   Eval F t env v →
   Compiles env t a →
-  run a st₀ = (e, st₁) →
+  runFold a st₀ = (e, st₁) →
   ∃ w, ZKEval w e (Val.toValue v) := by sorry
 
 -- **Constraint Satisfiability**: If a term compiles successfully,
@@ -104,7 +104,7 @@ theorem compile_constraints_satisfiable
   (t : Term F) (env : Env F)
   (a : ZKBuilder F (ZKExpr F)) (e : ZKExpr F) (st₀ st₁ : ZKBuilderState F) :
   Compiles env t a →
-  run a st₀ = (e, st₁) →
+  runFold a st₀ = (e, st₁) →
   ∃ w, ConstraintsSatisfied st₁.constraints w := by sorry
 
 -- **Type Safety Lemma**: If an arithmetic operation compiles,
@@ -169,6 +169,6 @@ theorem compile_sound {F : Type} [JoltField F] [DecidableEq F]
     (zkexpr : ZKExpr F) (st₀ st₁ : ZKBuilderState F) :
   Eval F t env v →
   Compiles env t comp →
-  run comp st₀ = (zkexpr, st₁) →
+  runFold comp st₀ = (zkexpr, st₁) →
   ConstraintsSatisfied st₁.constraints witness →
   ZKEval witness zkexpr (Val.toValue v) := by sorry

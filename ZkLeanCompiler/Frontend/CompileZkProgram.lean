@@ -1,3 +1,4 @@
+
 import ZkLeanCompiler.Lean.Compile
 import ZkLeanCompiler.Frontend.Parsed
 import Mathlib.Algebra.Field.Rat
@@ -6,7 +7,7 @@ import Lean.Data.Json.Basic
 
 open Term
 
-def program : Term ℚ := parsedProg_mul_self
+def program : Term ℚ := parsedProg_test
 
 /-- convert compiled `ZKExpr` into a small Json tree -/
 def toJson : ZKExpr ℚ → Lean.Json
@@ -25,7 +26,8 @@ def main : IO Unit := do
   let constraints : Array Lean.Json := (st.constraints.map toJson).toArray
   let out := Lean.Json.mkObj
               [ ("expr",        toJson expr)
-              , ("constraints", Lean.Json.arr constraints) ]
+              , ("constraints", Lean.Json.arr constraints),
+               ("num_witness", Lean.Json.num st.allocated_witness_count) ]
   IO.FS.writeFile "ZkLeanCompiler/Frontend/out.json" (Lean.Json.compress out)
   IO.println (Lean.Json.compress out)
   IO.println "ZK circuit JSON written to ZkLeanCompiler/Frontend/out.json"

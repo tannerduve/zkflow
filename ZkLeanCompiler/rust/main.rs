@@ -4,6 +4,7 @@ use serde::Deserialize;
 use anyhow::{Result, bail};
 use std::{env, fs};
 use std::path::Path;
+use stwo_prover::{prove, ProofInputs};
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
@@ -37,6 +38,10 @@ enum ZKExpr {
 struct CircuitIR {
     expr: ZKExpr,
     constraints: Vec<ZKExpr>,
+    #[serde(default)]
+    secret_inputs: Vec<f64>,
+    #[serde(default)]
+    public_inputs: Vec<f64>,
 }
 
 fn convert_expr(expr: &ZKExpr) -> Expr {
@@ -72,7 +77,6 @@ fn build_constraints(constraints: &[ZKExpr]) -> Component {
     builder.build("lean_program")
 }
 
-
 fn main() -> Result<()> {
     let json_path = Path::new("ZkLeanCompiler/Frontend/out.json");
     if !json_path.exists() {
@@ -85,8 +89,15 @@ fn main() -> Result<()> {
 
     let component = build_constraints(&circuit.constraints);
     println!("✅ Built constraint component with {} rows", component.num_rows());
+    
+    let inputs = ProofInputs {
+        component: &component,
+        public_inputs: circuit.public_inputs.clone(),
+        secret_inputs: circuit.secret_inputs.clone(),
+    };
 
-    // Future: add prover + witness assignment
+    let proof = prove(inputs)?;
+    println!("✅ Proof generated: {} bytes", proof.len());
 
     Ok(())
 }

@@ -958,4 +958,5 @@ dependencies = [
  "serde",
  "serde_json",
  "stwo-constraint-framework",
+ "stwo-prover",
 ]

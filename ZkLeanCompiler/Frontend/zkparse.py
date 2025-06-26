@@ -287,7 +287,7 @@ def emit_lean(code: str, stem: str):
     path.parent.mkdir(parents=True, exist_ok=True)
 
     header = textwrap.dedent("""\
-        import ZkLeanCompiler.Compile
+        import ZkLeanCompiler.Lean.Compile
         import Mathlib.Algebra.Field.Rat
         import Mathlib.Data.Rat.Defs
         open Term
@@ -298,12 +298,7 @@ def emit_lean(code: str, stem: str):
             let d := q.den
             (n + d).toUInt64
 
-        instance witness : Witnessable ℚ (ZKExpr ℚ) where
-          witness := do
-            let st ← get
-            let id := st.allocated_witness_count
-            set { st with allocated_witness_count := id + 1 }
-            pure (ZKExpr.WitnessVar id)
+        instance witness : Witnessable ℚ (ZKExpr ℚ) := inferInstance
 
         instance : JoltField ℚ where
           toField := inferInstance
