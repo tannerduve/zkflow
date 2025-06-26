@@ -88,14 +88,3 @@ python3 ZkLeanCompiler/Frontend/visualize_graph.py
 ```
 Produces `circuit_graph.png` with witnesses (blue), operations (yellow), constraints (orange), output (green).
 
----
-## 6.  Future work
-
-* Real witness generation (evaluate `Term` with secrets, feed into JSON).
-* Support public inputs.
-* Hash / Merkle primitives and range checks.
-* Finish the Lean proofs; remove remaining `sorry`.
-* Performance benchmarking against real circuits.
-
----
-
