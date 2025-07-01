@@ -1,6 +1,7 @@
 import Mathlib.Data.Nat.Basic
 import Mathlib.Algebra.Field.Defs
 import Mathlib.Data.Finset.Basic
+import ZkLeanCompiler.Lean.FreeMonad
 open Nat
 open Std
 
@@ -16,7 +17,7 @@ inductive BoolBinOp where
 | and | or
 deriving Inhabited, BEq, Repr
 
-inductive Term (f : Type u) [Field f] where
+inductive Term (f : Type u) where
 | var : String → Term f
 | lit : f → Term f
 | bool : Bool → Term f
@@ -24,12 +25,20 @@ inductive Term (f : Type u) [Field f] where
 | boolB : BoolBinOp  → Term f → Term f → Term f
 | eq  : Term f → Term f → Term f
 | not : Term f → Term f
-| lett : String → Term f → Term f → Term f
 | ifz : Term f → Term f → Term f → Term f
 | inSet : Term f → List f → Term f
-| assert : Term f → Term f → Term f
-| seq : Term f → Term f → Term f
-deriving Inhabited, BEq
+deriving Inhabited, BEq, Repr
+
+instance : ToString ArithBinOp where
+  toString
+    | .add => "+"
+    | .sub => "-"
+    | .mul => "*"
+
+instance : ToString BoolBinOp where
+  toString
+    | .and => "&&"
+    | .or => "||"
 
 /-
 Function to compute the free variables of a term.
@@ -39,12 +48,9 @@ def freeVars {f} [Field f] : Term f → Finset String
   | .lit _ | .bool _ => ∅
   | .arith _ t₁ t₂ => freeVars t₁ ∪ freeVars t₂
   | .boolB _ t₁ t₂ => freeVars t₁ ∪ freeVars t₂
-  | .seq  t₁ t₂     => freeVars t₁ ∪ freeVars t₂
   | .eq   t₁ t₂     => freeVars t₁ ∪ freeVars t₂
   | .not t          => freeVars t
   | .ifz c t₁ t₂    => freeVars c ∪ freeVars t₁ ∪ freeVars t₂
-  | .lett x t₁ t₂   => freeVars t₁ ∪ (freeVars t₂ \ {x})
-  | .assert t₁ t₂      => freeVars t₁ ∪ freeVars t₂
   | .inSet t _      => freeVars t
 
 mutual
@@ -62,6 +68,10 @@ deriving Inhabited
 structure Env (f : Type) [Field f] where
   lookup : String → Option (Val f)
 end
+
+inductive Eff (f : Type) : Type → Type where
+  | Assert : Term f → Eff f PUnit
+  | LetBinding : String → Term f → Eff f (Term f)
 
 def Env.insert {f : Type} [Field f] (x : String) (v : Val f) (ρ : Env f) : Env f :=
   { lookup := fun y => if x == y then some v else ρ.lookup y }

@@ -1,6 +1,8 @@
 import «ZkLeanCompiler».Lean.LCSemantics
 import «ZkLeanCompiler».Lean.Semantics
+import «ZkLeanCompiler».Lean.Program
 import Std.Data.HashMap
+import «ZkLeanCompiler».Lean.Builder
 
 open ZKBuilder
 
@@ -139,16 +141,6 @@ def compileExpr {f} [JoltField f] [DecidableEq f] (t : Term f) (env : Env f) : Z
     constrainEq (ZKExpr.Sub (ZKExpr.Literal 1) x) z
     assertIsBool z
     return z
-  | Term.lett x t1 t2 => do
-    -- 1.  evaluate / constant–fold the bound expression
-    match eval t1 env with
-    | some v =>
-        -- 2. extend the environment before compiling the body
-        let env' := env.insert x v
-        compileExpr t2 env'
-    | none =>
-        -- could not evaluate at compile time → just ignore the binding
-        compileExpr t2 env
   | Term.inSet t ts => do
     -- 1) compile the inner term
     let x ← compileExpr t env
@@ -166,14 +158,6 @@ def compileExpr {f} [JoltField f] [DecidableEq f] (t : Term f) (env : Env f) : Z
     assertIsBool b                                               -- b ∈ {0,1}
      -- 5) return Boolean indicator
     return b
-  | Term.assert t₁ t₂ => do
-    let cond ← compileExpr t₁ env
-    assertIsBool cond
-    constrainEq cond (ZKExpr.Literal 1)
-    compileExpr t₂ env
-  | Term.seq t1 t2 => do
-    let _ ← compileExpr t1 env
-    compileExpr t2 env
 
 inductive Compiles {f} [JoltField f] [DecidableEq f] :
     Env f → Term f → ZKBuilder f (ZKExpr f) → Prop
@@ -232,14 +216,6 @@ inductive Compiles {f} [JoltField f] [DecidableEq f] :
         constrainEq (ZKExpr.Sub (ZKExpr.Literal 1) x) z
         assertIsBool z
         pure z)
-| lett_eval {env x t₁ t₂ v body} :
-    eval t₁ env = some v →
-    Compiles (env.insert x v) t₂ body →
-    Compiles env (Term.lett x t₁ t₂) body
-| lett_skip {env x t₁ t₂ body} :
-    eval t₁ env = none →
-    Compiles env t₂ body →
-    Compiles env (Term.lett x t₁ t₂) body
 | inSet {env t ts it} :
     Compiles env t it →
     Compiles env (Term.inSet t ts)
@@ -254,20 +230,6 @@ inductive Compiles {f} [JoltField f] [DecidableEq f] :
         constrainEq (ZKExpr.Mul prod inv) (ZKExpr.Sub (ZKExpr.Literal 1) b)
         assertIsBool b
         pure b)
-| assert {env cond body ic ib} :
-    Compiles env cond ic → Compiles env body ib →
-    Compiles env (Term.assert cond body)
-      (do
-        let c ← ic
-        assertIsBool c
-        constrainEq c (ZKExpr.Literal 1)
-        ib)
-| seq {env t₁ t₂ ia ib} :
-    Compiles env t₁ ia → Compiles env t₂ ib →
-    Compiles env (Term.seq t₁ t₂)
-      (do
-        let _ ← ia
-        ib)
 
 lemma compilers_match
   {f} (instJF : JoltField f) (instDEq : DecidableEq f)
@@ -276,46 +238,55 @@ lemma compilers_match
   @compileExpr f instJF instDEq t env = a := by
   intros compilesPred
   induction compilesPred
-  · case var_field env' x n hlookup =>
+  · case var_field hlookup =>
     rw [Env.lookup] at hlookup
     rw [compileExpr]
     simp [hlookup]
-  · case var_bool env' x b hlookup =>
+  · case var_bool hlookup =>
     rw [Env.lookup] at hlookup
     rw [compileExpr]
     simp [hlookup]
-  · case lit env' n =>
+  · case lit =>
     rw [compileExpr]
-  · case bool env' b =>
+  · case bool =>
     rw [compileExpr]
-  · case arith env' op t₁ t₂ a b ha hb =>
-    rw [compileExpr]
-    simp [ha, hb]
-  · case boolB env' op t₁ t₂ a b ha hb =>
+  · case arith ha hb =>
     rw [compileExpr]
     simp [ha, hb]
-  · case eq env' t₁ t₂ a b ha hb =>
+  · case boolB ha hb =>
     rw [compileExpr]
     simp [ha, hb]
-  · case ifz env c t₁ t₂ ic ia ib ihc iht ihe =>
+  · case eq ha hb =>
+    rw [compileExpr]
+    simp [ha, hb]
+  · case ifz ihc iht ihe =>
       simp [compileExpr, ihc, iht, ihe]
-  · case not env' e ie ha =>
+  · case not ha =>
     rw [compileExpr]
     simp [ha]
-  · case lett_eval env' x t₁ t₂ v body heval hcomp hexpr =>
-    rw [compileExpr]
-    simp [heval, hcomp]
-    exact hexpr
-  · case lett_skip body env' x t₁ t₂ heval hcomp hexpr =>
-    rw [compileExpr]
-    simp [heval, hcomp]
-    exact hexpr
-  · case inSet env' t ts it hcomp =>
+  · case inSet hcomp =>
     rw [compileExpr]
     simp [hcomp]
-  · case assert env' cond body ic ib hcomp hbody =>
-    rw [compileExpr]
-    simp [hcomp, hbody]
-  · case seq env' t₁ t₂ ia ib ha hb =>
-    rw [compileExpr]
-    simp [ha, hb]
+
+/-- Translate one effect into `ZKBuilder`. Keeps the same result type. -/
+def compileEff [JoltField f] [DecidableEq f]
+  (ρ : Env f) : {α : Type} → Eff f α → ZKBuilder f α
+| _, .Assert (.eq a b) => do               -- α = PUnit
+    let a' ← compileExpr a ρ
+    let b' ← compileExpr b ρ
+    constrainEq a' b'
+    pure ()
+| _, .Assert _        => panic! "ASSERT must be equality"
+| _, .LetBinding x t  => do                -- α = Term f
+  let t' ← compileExpr t ρ            -- compile RHS
+  let w  ← witness                    -- fresh field witness
+  constrainEq w t'
+  let γ ← getEnv             -- update builder env
+  putEnv (γ.insert x w)
+  pure (Term.var x)
+
+/-- Interpret a whole `Program` using the handler above. -/
+def compileProgram [JoltField f] [DecidableEq f] {α}
+  (p  : Program f α)
+  (ρ  : Env f) : ZKBuilder f α :=
+  p.mapM (compileEff ρ)

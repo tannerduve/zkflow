@@ -20,6 +20,8 @@ inductive ZKOp (f : Type) : Type → Type
 | ConstrainEq    (x y    : ZKExpr f)   : ZKOp f PUnit
 | ConstrainR1CS  (a b c  : ZKExpr f)   : ZKOp f PUnit
 | Lookup : ComposedLookupTable f 16 4 → Array (ZKExpr f) → ZKOp f (ZKExpr f)
+| GetEnv : ZKOp f (Std.HashMap String (ZKExpr f))
+| PutEnv (ρ : Std.HashMap String (ZKExpr f)) : ZKOp f PUnit
 
 /-- Type for the ZK circuit builder monad. -/
 def ZKBuilder (f : Type) := FreeM (ZKOp f)
@@ -51,6 +53,12 @@ def lookup (tbl : ComposedLookupTable f 16 4)
            (args : Array (ZKExpr f)) : ZKBuilder f (ZKExpr f) :=
   FreeM.lift (ZKOp.Lookup tbl args)
 
+def getEnv : ZKBuilder f (Std.HashMap String (ZKExpr f)) :=
+  FreeM.lift ZKOp.GetEnv
+
+def putEnv (ρ : Std.HashMap String (ZKExpr f)) : ZKBuilder f PUnit :=
+  FreeM.lift (ZKOp.PutEnv ρ)
+
 end ZKBuilder
 
 open ZKBuilder
@@ -80,6 +88,13 @@ def zkOpInterp [Zero f] {β : Type} (op : ZKOp f β) : StateM (ZKBuilderState f)
       let idx := st.allocated_witness_count
       set { st with allocated_witness_count := idx + 1 }
       pure (ZKExpr.WitnessVar idx)
+  | ZKOp.GetEnv => do
+      let st ← get
+      pure st.env
+  | ZKOp.PutEnv ρ => do
+      let st ← get
+      set { st with env := ρ }
+      pure ()
 
 /-- Convert a `ZKBuilder` computation into a `StateM` computation. This is the canonical
 interpreter derived from `mapM`. -/
@@ -112,6 +127,12 @@ def builderStep [Zero f] {α} : {ι : Type} → ZKOp f ι → (ι → ZKBuilderS
         let idx := st.allocated_witness_count
         let st' := { st with allocated_witness_count := idx + 1 }
         k (ZKExpr.WitnessVar idx) st'
+  | _, (ZKOp.GetEnv), k =>
+      fun st =>
+        k st.env st
+  | _, (ZKOp.PutEnv ρ), k =>
+      fun st =>
+        k () { st with env := ρ }
 
 /-- Run a `ZKBuilder` program, producing its result and the final state.
    Implemented via `cataFreeM`, i.e. a fold over the free-monad syntax tree. -/
@@ -131,31 +152,104 @@ instance [Witnessable f a] : Witnessable f (Vector a n) where
           pure (Vector.push v w)
     go n
 
-def zkOpEval [Zero f] [Inhabited f] (op : ZKOp f β) : StateM (ZKBuilderState f × List f) β :=
-  match op with
+structure WitnessState (f : Type) where
+  builder : ZKBuilderState f
+  values : List f
+deriving Inhabited
+
+/-- Initial empty witness state -/
+def initialWitnessState : WitnessState f :=
+  { builder := initialZKBuilderState, values := [] }
+
+/-- Interpreter that, while interpreting the `ZKOp`s, also records default witness
+    values so that the final state contains a satisfying witness vector. -/
+@[inline]
+def zkOpInterpWitness [Zero f] {β} [Inhabited f] : ZKOp f β → StateM (WitnessState f) β
   | ZKOp.AllocWitness => do
-      let (st, wvec) ← get
-      let idx := st.allocated_witness_count
+      let s ← get
+      let idx := s.builder.allocated_witness_count
       let defaultVal : f := default
-      let wvec' := wvec ++ [defaultVal]
-      let st' := { st with allocated_witness_count := idx + 1 }
-      set (st', wvec')
+      let s' : WitnessState f := {
+        builder := { s.builder with allocated_witness_count := idx + 1 },
+        values := s.values ++ [defaultVal]
+      }
+      set s'
       pure (ZKExpr.WitnessVar idx)
   | ZKOp.ConstrainEq x y => do
-      let (st, wvec) ← get
-      let st' := { st with constraints := (ZKExpr.Eq x y) :: st.constraints }
-      set (st', wvec)
+      let s ← get
+      let s' : WitnessState f := {
+        s with builder := { s.builder with constraints := ZKExpr.Eq x y :: s.builder.constraints } }
+      set s'
       pure ()
   | ZKOp.ConstrainR1CS a b c => do
-      let (st, wvec) ← get
-      let st' := { st with constraints := (ZKExpr.Eq (ZKExpr.Mul a b) c) :: st.constraints }
-      set (st', wvec)
+      let s ← get
+      let s' : WitnessState f := {
+        s with builder := { s.builder with constraints := ZKExpr.Eq (ZKExpr.Mul a b) c :: s.builder.constraints } }
+      set s'
       pure ()
   | ZKOp.Lookup _ _ => do
-      let (st, wvec) ← get
-      let idx := st.allocated_witness_count
+      let s ← get
+      let idx := s.builder.allocated_witness_count
       let defaultVal : f := default
-      let wvec' := wvec ++ [defaultVal]
-      let st' := { st with allocated_witness_count := idx + 1 }
-      set (st', wvec')
+      let s' : WitnessState f := {
+        builder := { s.builder with allocated_witness_count := idx + 1 },
+        values := s.values ++ [defaultVal]
+      }
+      set s'
       pure (ZKExpr.WitnessVar idx)
+  | ZKOp.GetEnv => do
+      let s ← get
+      pure s.builder.env
+  | ZKOp.PutEnv ρ => do
+      let s ← get
+      set { s with builder := { s.builder with env := ρ } }
+      pure ()
+/-- Pure case for the witness catamorphism. -/
+@[inline]
+def builderPureW [Zero f] {α} (a : α) : WitnessState f → (α × WitnessState f) :=
+  fun s => (a, s)
+
+/-- Step case: interpret one `ZKOp` and continue folding, threading the witness state. -/
+@[inline]
+def builderStepW [Zero f] [Inhabited f] {α}
+    : {ι : Type} → ZKOp f ι → (ι → WitnessState f → (α × WitnessState f)) →
+      WitnessState f → (α × WitnessState f)
+  | _, ZKOp.AllocWitness, k =>
+      fun s =>
+        let idx := s.builder.allocated_witness_count
+        let defaultVal : f := default
+        let s' : WitnessState f := {
+          builder := { s.builder with allocated_witness_count := idx + 1 },
+          values  := s.values ++ [defaultVal]
+        }
+        k (ZKExpr.WitnessVar idx) s'
+  | _, (ZKOp.ConstrainEq x y), k =>
+      fun s =>
+        let s' : WitnessState f := {
+          s with builder := { s.builder with constraints := ZKExpr.Eq x y :: s.builder.constraints } }
+        k () s'
+  | _, (ZKOp.ConstrainR1CS a b c), k =>
+      fun s =>
+        let s' : WitnessState f := {
+          s with builder := { s.builder with constraints := ZKExpr.Eq (ZKExpr.Mul a b) c :: s.builder.constraints } }
+        k () s'
+  | _, (ZKOp.Lookup _ _), k =>
+      fun s =>
+        let idx := s.builder.allocated_witness_count
+        let defaultVal : f := default
+        let s' : WitnessState f := {
+          builder := { s.builder with allocated_witness_count := idx + 1 },
+          values  := s.values ++ [defaultVal]
+        }
+        k (ZKExpr.WitnessVar idx) s'
+  | _, (ZKOp.GetEnv), k =>
+      fun s =>
+        k s.builder.env s
+  | _, (ZKOp.PutEnv ρ), k =>
+      fun s =>
+        k () { s with builder := { s.builder with env := ρ } }
+
+/-- Catamorphic fold that produces both the compiled circuit and a witness skeleton. -/
+@[inline]
+def runWithWitness [Zero f] [Inhabited f] (p : ZKBuilder f α) : (α × WitnessState f) :=
+  FreeM.cataFreeM builderPureW builderStepW p initialWitnessState
