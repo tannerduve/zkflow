@@ -2,6 +2,8 @@
 
 `zkFlow` is a proof-of-concept **Lean-verified compiler** that takes a tiny expression language and produces a complete zero-knowledge circuit that can be proven with the new [sTwo](https://github.com/starkware-libs/stwo) backend.
 
+FORMAL VERIFICATION AND INTEGRATION WITH STWO IN PROGRESS
+
 ```
   Term program (.zk) ──► Lean compiler ──► JSON (constraints + witness slots)
                                             │
