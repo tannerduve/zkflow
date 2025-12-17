@@ -1,4 +1,3 @@
-
 import ZkLeanCompiler.Lean.Compile
 import ZkLeanCompiler.Frontend.Parsed
 import Mathlib.Algebra.Field.Rat

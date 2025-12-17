@@ -1,15 +1,14 @@
-import «ZkLeanCompiler».Lean.LCSemantics
 import «ZkLeanCompiler».Lean.Semantics
-import «ZkLeanCompiler».Lean.Program
+import ZKLean.Semantics
 import Std.Data.HashMap
-import «ZkLeanCompiler».Lean.Builder
+import ZKLean.Builder
 
 open ZKBuilder
 
-def assertIsBool {f} [Field f] (x : ZKExpr f) : ZKBuilder f Unit :=
+def assertIsBool {f} [ZKField f] (x : ZKExpr f) : ZKBuilder f Unit :=
   constrainR1CS x (ZKExpr.Sub (ZKExpr.Literal 1) x) (ZKExpr.Literal 0)
 
-def ArithBinOp.toZKExpr {f} [Field f]
+def ArithBinOp.toZKExpr {f} [ZKField f]
 (op : ArithBinOp) :
 ZKExpr f → ZKExpr f → ZKExpr f :=
   match op with
@@ -17,27 +16,7 @@ ZKExpr f → ZKExpr f → ZKExpr f :=
   | .sub => ZKExpr.Sub
   | .mul => ZKExpr.Mul
 
-def ArithBinOp.toValueOp [JoltField f]
-(op : ArithBinOp) :
-Value f → Value f → Value f :=
-  match op with
-  | .add => (λ a b =>
-              match a, b with
-              | Value.VField a, Value.VField b => (Value.VField (a + b))
-              | _, _ => Value.None
-              )
-  | .sub => (λ a b =>
-              match a, b with
-              | Value.VField a, Value.VField b => (Value.VField (a - b))
-              | _, _ => Value.None
-              )
-  | .mul => (λ a b =>
-              match a, b with
-              | Value.VField a, Value.VField b => (Value.VField (a * b))
-              | _, _ => Value.None
-              )
-
-def ArithBinOp.toValOp [JoltField f]
+def ArithBinOp.toValOp [ZKField f]
 (op : ArithBinOp) :
 Val f → Val f → Val f :=
   match op with
@@ -65,7 +44,7 @@ def ArithBinOp.toFieldOp {f} [Field f] (op : ArithBinOp) :
   | .mul => (λ a b => a * b)
 
 def BoolBinOp.liftM
-    {f} [Field f] [JoltField f] [DecidableEq f] :
+    {f} [Field f] [ZKField f] [DecidableEq f] :
     BoolBinOp → ZKExpr f → ZKExpr f → ZKBuilder f (ZKExpr f)
   | .and, a, b => do
       let z ← Witnessable.witness
@@ -79,8 +58,7 @@ def BoolBinOp.liftM
       assertIsBool z
       pure z
 
-def liftOpM {f} [Field f]
-[JoltField f]
+def liftOpM {f} [ZKField f]
 [DecidableEq f] :
     ArithBinOp → ZKExpr f → ZKExpr f →
     ZKBuilder f (ZKExpr f)
@@ -89,7 +67,7 @@ def liftOpM {f} [Field f]
       constrainEq (op.toZKExpr ea eb) w
       pure w
 
-def compileExpr {f} [JoltField f] [DecidableEq f] (t : Term f) (env : Env f) : ZKBuilder f (ZKExpr f) :=
+def compileExpr {f} [ZKField f] [DecidableEq f] (t : Term f) (env : Env f) : ZKBuilder f (ZKExpr f) :=
   match t with
   | Term.var x =>
       match env.lookup x with
@@ -159,7 +137,7 @@ def compileExpr {f} [JoltField f] [DecidableEq f] (t : Term f) (env : Env f) : Z
      -- 5) return Boolean indicator
     return b
 
-inductive Compiles {f} [JoltField f] [DecidableEq f] :
+inductive Compiles {f} [ZKField f] [DecidableEq f] :
     Env f → Term f → ZKBuilder f (ZKExpr f) → Prop
 | var_field {env x n} :
     env.lookup x = some (Val.Field n) →
@@ -232,7 +210,7 @@ inductive Compiles {f} [JoltField f] [DecidableEq f] :
         pure b)
 
 lemma compilers_match
-  {f} (instJF : JoltField f) (instDEq : DecidableEq f)
+  {f} (instJF : ZKField f) (instDEq : DecidableEq f)
   {env t a} :
   @Compiles f instJF instDEq env t a →
   @compileExpr f instJF instDEq t env = a := by
@@ -267,26 +245,3 @@ lemma compilers_match
   · case inSet hcomp =>
     rw [compileExpr]
     simp [hcomp]
-
-/-- Translate one effect into `ZKBuilder`. Keeps the same result type. -/
-def compileEff [JoltField f] [DecidableEq f]
-  (ρ : Env f) : {α : Type} → Eff f α → ZKBuilder f α
-| _, .Assert (.eq a b) => do               -- α = PUnit
-    let a' ← compileExpr a ρ
-    let b' ← compileExpr b ρ
-    constrainEq a' b'
-    pure ()
-| _, .Assert _        => panic! "ASSERT must be equality"
-| _, .LetBinding x t  => do                -- α = Term f
-  let t' ← compileExpr t ρ            -- compile RHS
-  let w  ← witness                    -- fresh field witness
-  constrainEq w t'
-  let γ ← getEnv             -- update builder env
-  putEnv (γ.insert x w)
-  pure (Term.var x)
-
-/-- Interpret a whole `Program` using the handler above. -/
-def compileProgram [JoltField f] [DecidableEq f] {α}
-  (p  : Program f α)
-  (ρ  : Env f) : ZKBuilder f α :=
-  p.mapM (compileEff ρ)
