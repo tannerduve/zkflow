@@ -1,0 +1,4 @@
+let x = 5 in
+(assert (x * 2 == 10) then (x + 3)) ;
+(!false || (1 == 0))
+

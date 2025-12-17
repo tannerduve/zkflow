@@ -18,3 +18,6 @@ require Parser from git "https://github.com/fgdorais/lean4-parser" @ "04dab179aa
 @[default_target]
 lean_lib «ZkLeanCompiler» where
   -- add any library configuration options here
+
+lean_exe zkflow_demo where
+  root := `ZkLeanCompiler.DemoMain

@@ -5,9 +5,20 @@ import ZKLean.Builder
 
 open ZKBuilder
 
+/-!
+# Compiler to ZKLean circuits
+
+This module defines:
+
+* the **executable compiler** `compileExpr`, which produces a `ZKBuilder` program, and
+* the **relational compiler** `Compiles`, which is convenient for proofs.
+-/
+
+/-- Constrain an expression to be boolean (i.e. `x * (1 - x) = 0`). -/
 def assertIsBool {f} [ZKField f] (x : ZKExpr f) : ZKBuilder f Unit :=
   constrainR1CS x (ZKExpr.Sub (ZKExpr.Literal 1) x) (ZKExpr.Literal 0)
 
+/-- Translate an arithmetic operator into the corresponding `ZKExpr` constructor. -/
 def ArithBinOp.toZKExpr {f} [ZKField f]
 (op : ArithBinOp) :
 ZKExpr f → ZKExpr f → ZKExpr f :=
@@ -16,6 +27,7 @@ ZKExpr f → ZKExpr f → ZKExpr f :=
   | .sub => ZKExpr.Sub
   | .mul => ZKExpr.Mul
 
+/-- Interpret an arithmetic operator at the source-value level (returns `Val.None` on type mismatch). -/
 def ArithBinOp.toValOp [ZKField f]
 (op : ArithBinOp) :
 Val f → Val f → Val f :=
@@ -43,6 +55,7 @@ def ArithBinOp.toFieldOp {f} [Field f] (op : ArithBinOp) :
   | .sub => (λ a b => a - b)
   | .mul => (λ a b => a * b)
 
+/-- Compile boolean binary operations using arithmetic constraints over `{0,1}`. -/
 def BoolBinOp.liftM
     {f} [Field f] [ZKField f] [DecidableEq f] :
     BoolBinOp → ZKExpr f → ZKExpr f → ZKBuilder f (ZKExpr f)
@@ -58,6 +71,7 @@ def BoolBinOp.liftM
       assertIsBool z
       pure z
 
+/-- Compile an arithmetic operation by allocating a witness and constraining it to equal the op result. -/
 def liftOpM {f} [ZKField f]
 [DecidableEq f] :
     ArithBinOp → ZKExpr f → ZKExpr f →
@@ -67,6 +81,7 @@ def liftOpM {f} [ZKField f]
       constrainEq (op.toZKExpr ea eb) w
       pure w
 
+/-- Compile a source term into a `ZKBuilder` program producing a `ZKExpr`. -/
 def compileExpr {f} [ZKField f] [DecidableEq f] (t : Term f) (env : Env f) : ZKBuilder f (ZKExpr f) :=
   match t with
   | Term.var x =>
@@ -152,6 +167,7 @@ def compileExpr {f} [ZKField f] [DecidableEq f] (t : Term f) (env : Env f) : ZKB
     let _ ← compileExpr t₁ env
     compileExpr t₂ env
 
+/-- Relational form of `compileExpr`, suitable for induction/proofs. -/
 inductive Compiles {f} [ZKField f] [DecidableEq f] :
     Env f → Term f → ZKBuilder f (ZKExpr f) → Prop
 | var_field {env x n} :
@@ -246,51 +262,14 @@ inductive Compiles {f} [ZKField f] [DecidableEq f] :
         let _ ← ia
         ib)
 
+/--
+The executable compiler matches the relational compiler: any derivation of `Compiles env t a`
+implies `compileExpr t env = a`.
+-/
 lemma compilers_match
   {f} (instJF : ZKField f) (instDEq : DecidableEq f)
   {env t a} :
   @Compiles f instJF instDEq env t a →
   @compileExpr f instJF instDEq t env = a := by
-  intros compilesPred
-  induction compilesPred
-  · case var_field hlookup =>
-    rw [Env.lookup] at hlookup
-    rw [compileExpr]
-    simp [hlookup]
-  · case var_bool hlookup =>
-    rw [Env.lookup] at hlookup
-    rw [compileExpr]
-    simp [hlookup]
-  · case lit =>
-    rw [compileExpr]
-  · case bool =>
-    rw [compileExpr]
-  · case arith ha hb =>
-    rw [compileExpr]
-    simp [ha, hb]
-  · case boolB ha hb =>
-    rw [compileExpr]
-    simp [ha, hb]
-  · case eq ha hb =>
-    rw [compileExpr]
-    simp [ha, hb]
-  · case ifz ihc iht ihe =>
-      simp [compileExpr, ihc, iht, ihe]
-  · case not ha =>
-    rw [compileExpr]
-    simp [ha]
-  · case lett_eval heval hcomp ih =>
-    rw [compileExpr]
-    simp [heval, hcomp, ih]
-  · case lett_skip heval hcomp ih =>
-    rw [compileExpr]
-    simp [heval, hcomp, ih]
-  · case inSet hcomp =>
-    rw [compileExpr]
-    simp [hcomp]
-  · case assert hcond hbody ihcond ihbody =>
-    rw [compileExpr]
-    simp [ihcond, ihbody, hcond, hbody]
-  · case seq ht₁ ht₂ iht₁ iht₂ =>
-    rw [compileExpr]
-    simp [iht₁, iht₂, ht₁, ht₂]
+  intro h
+  induction h <;> simp [compileExpr, *]

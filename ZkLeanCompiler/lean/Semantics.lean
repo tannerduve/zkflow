@@ -2,7 +2,16 @@ import «ZkLeanCompiler».Lean.AST
 import Mathlib.Data.Nat.Basic
 open Nat
 
--- Helper for deciding equality in the big step semantics
+/-!
+# Source Semantics
+
+This module defines both:
+
+* a **big-step relational semantics** `Eval`, and
+* a **computable evaluator** `eval : Term f → Env f → Option (Val f)`.
+-/
+
+/-- Helper for deciding equality in the big-step semantics. -/
 def eqVal {f : Type} [ZKField f] [BEq f] : Val f → Val f → Bool
   | Val.Field n1, Val.Field n2 => n1 == n2
   | Val.Bool b1, Val.Bool b2 => b1 == b2
@@ -13,6 +22,7 @@ Big step semantics of our expression language.
 The semantics is defined as a relation `Eval` that takes a term, an environment, and a value.
 The relation holds if the term evaluates to the value in the given environment.
 -/
+/-- Big-step evaluation relation for the source language. -/
 inductive Eval (f : Type) [ZKField f] [BEq f] : Term f → Env f → Val f → Prop
 | var : ∀ (env : Env f) (x : String) (v : Val f),
     env.lookup x = some v →
@@ -48,12 +58,13 @@ inductive Eval (f : Type) [ZKField f] [BEq f] : Term f → Env f → Val f → P
     env' = Env.insert x v env →
     Eval f t₂ env' v' →
     Eval f (Term.lett x t₁ t₂) env v'
-| ifz_true : ∀ (env : Env f) (t₁ t₂ t₃ : Term f) (v : Val f),
-    Eval f t₁ env (Val.Bool true) →
+| ifz_true : ∀ (env : Env f) (t₁ t₂ t₃ : Term f) (v : Val f) (n : f),
+    Eval f t₁ env (Val.Field n) →
+    n ≠ 0 →
     Eval f t₂ env v →
     Eval f (ifz` t₁ then` t₂ else` t₃) env v
 | ifz_false : ∀ (env : Env f) (t₁ t₂ t₃ : Term f) (v : Val f),
-    Eval f t₁ env (Val.Bool false) →
+    Eval f t₁ env (Val.Field 0) →
     Eval f t₃ env v →
     Eval f (ifz` t₁ then` t₂ else` t₃) env v
 | assert : ∀ (env : Env f) (t₁ t₂ : Term f) (v : Val f),
@@ -76,6 +87,7 @@ inductive Eval (f : Type) [ZKField f] [BEq f] : Term f → Env f → Val f → P
 /-
 A functional version of our operational semantics
 -/
+/-- Computable evaluator for the source language; returns `none` on stuck/ill-typed programs. -/
 def eval {f} [ZKField f] [BEq f] [DecidableEq f] : Term f → Env f → Option (Val f)
 | Term.var x, env =>
   match env.lookup x with
@@ -139,3 +151,18 @@ def eval {f} [ZKField f] [BEq f] [DecidableEq f] : Term f → Env f → Option (
   match eval t₁ env with
   | some _ => eval t₂ env
   | none => none
+
+theorem eval_sound
+  {f} [ZKField f] [BEq f] [DecidableEq f]
+  {t : Term f} {env : Env f} {v : Val f} :
+  Eval f t env v → eval (f:=f) t env = some v := by
+  intro h
+  induction h <;> simp [eval, eqVal, *]
+  · rename_i env' x v a
+    cases v <;> simp
+  · rename_i env' op t₁ t₂ n₁ n₂ h₁ h₂ h₃ h₄
+    cases op <;> simp
+  · rename_i env' op t₁ t₂ n₁ n₂ h₁ h₂ h₃ h₄
+    cases op <;> simp
+  · rename_i env' op t₁ t₂ v₁ v₂ a₁ a₂ h₃ h₄ h₅ h₆
+    simpa [h₃] using h₆

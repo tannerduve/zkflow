@@ -9,18 +9,23 @@ import ZKLean.Builder
 open Nat
 open Std
 
-/-
-The syntax of our expression language.
-The language is a simple expression language with variables, literals, arithmetic and boolean operations,
-and a few control flow constructs.
+/-!
+# Source Language AST
+
+This module defines the AST for the small source language compiled into ZK circuits, along with a
+simple `freeVars` function and a `wellScoped` predicate.
 -/
+
+/-- Binary arithmetic operators. -/
 inductive ArithBinOp where
 | add | sub | mul
 deriving Inhabited, BEq, Repr
+/-- Binary boolean operators. -/
 inductive BoolBinOp where
 | and | or
 deriving Inhabited, BEq, Repr
 
+/-- Source-language terms. -/
 inductive Term (f : Type u) where
 | var : String → Term f
 | lit : f → Term f
@@ -50,6 +55,7 @@ instance : ToString BoolBinOp where
 /-
 Function to compute the free variables of a term.
 -/
+/-- The set of free variables of a term. -/
 def freeVars {f} [Field f] : Term f → Finset String
   | .var x          => {x}
   | .lit _ | .bool _ => ∅
@@ -94,10 +100,12 @@ theorem not_iff {f} [ZKField f] (t : Term f) (env : Env f) :
     wellScoped (Term.not t) env ↔ wellScoped t env := by
   simp [wellScoped, freeVars]
 
+/-- `inSet` does not introduce new free variables. -/
 theorem inSet_iff {f} [ZKField f] (t : Term f) (ts : List f) (env : Env f) :
     wellScoped (Term.inSet t ts) env ↔ wellScoped t env := by
   simp [wellScoped, freeVars]
 
+/-- `assert` is well scoped iff both subterms are well scoped. -/
 theorem assert_iff {f} [ZKField f] (t₁ t₂ : Term f) (env : Env f) :
     wellScoped (Term.assert t₁ t₂) env ↔ wellScoped t₁ env ∧ wellScoped t₂ env := by
   constructor
@@ -116,6 +124,7 @@ theorem assert_iff {f} [ZKField f] (t₁ t₂ : Term f) (env : Env f) :
     · exact h₁ x hx'
     · exact h₂ x hx'
 
+/-- `seq` is well scoped iff both subterms are well scoped. -/
 theorem seq_iff {f} [ZKField f] (t₁ t₂ : Term f) (env : Env f) :
     wellScoped (Term.seq t₁ t₂) env ↔ wellScoped t₁ env ∧ wellScoped t₂ env := by
   constructor
@@ -153,6 +162,7 @@ theorem arith_iff {f} [ZKField f] (op : ArithBinOp) (t₁ t₂ : Term f) (env : 
     · exact h₁ x hx'
     · exact h₂ x hx'
 
+/-- A boolean binary operator term is well scoped iff both operands are well scoped. -/
 theorem boolB_iff {f} [ZKField f] (op : BoolBinOp) (t₁ t₂ : Term f) (env : Env f) :
     wellScoped (Term.boolB op t₁ t₂) env ↔ wellScoped t₁ env ∧ wellScoped t₂ env := by
   constructor
@@ -171,6 +181,7 @@ theorem boolB_iff {f} [ZKField f] (op : BoolBinOp) (t₁ t₂ : Term f) (env : E
     · exact h₁ x hx'
     · exact h₂ x hx'
 
+/-- An equality term is well scoped iff both operands are well scoped. -/
 theorem eq_iff {f} [ZKField f] (t₁ t₂ : Term f) (env : Env f) :
     wellScoped (Term.eq t₁ t₂) env ↔ wellScoped t₁ env ∧ wellScoped t₂ env := by
   constructor
@@ -189,6 +200,7 @@ theorem eq_iff {f} [ZKField f] (t₁ t₂ : Term f) (env : Env f) :
     · exact h₁ x hx'
     · exact h₂ x hx'
 
+/-- An `ifz` term is well scoped iff the condition and both branches are well scoped. -/
 theorem ifz_iff {f} [ZKField f] (c t₁ t₂ : Term f) (env : Env f) :
     wellScoped (Term.ifz c t₁ t₂) env ↔ wellScoped c env ∧ wellScoped t₁ env ∧ wellScoped t₂ env := by
   constructor
