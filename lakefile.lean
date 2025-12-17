@@ -9,9 +9,9 @@ package «zk_lean_compiler» where
   -- add any additional package configuration options here
 
 require mathlib from git
-     "https://github.com/leanprover-community/mathlib4.git" @ "v4.18.0"
+     "https://github.com/leanprover-community/mathlib4.git" @ "37df177aaa770670452312393d4e84aaad56e7b6"
 
-require zkLean from git "https://github.com/tannerduve/zk-lean.git" @ "main"
+require ZKLeanEcosystem from git "https://github.com/GaloisInc/zk-lean.git" @ "main"
 
 @[default_target]
 lean_lib «ZkLeanCompiler» where

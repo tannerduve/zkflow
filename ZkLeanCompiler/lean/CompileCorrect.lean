@@ -1,5 +1,5 @@
 import «ZkLeanCompiler».Lean.Compile
-import «ZkLeanCompiler».Lean.Semantics
+import ZKLean.Semantics
 import Mathlib.Tactic.Cases
 import Mathlib.Algebra.Field.Defs
 import Mathlib.Data.List.Basic
@@ -7,168 +7,169 @@ import Mathlib.Data.List.Basic
 set_option linter.unusedTactic false
 set_option linter.unusedSectionVars false
 
-variable {F} [JoltField F] [DecidableEq F]
+variable {F} [ZKField F] [DecidableEq F]
 
 open ZKBuilder
+
+/- Compatibility: older files used `JoltField`. -/
+abbrev JoltField := ZKField
+
+namespace Val
+
+/- Encode a source-language value as a field element (Booleans as `0/1`). -/
+def encode {F} [ZKField F] : Val F → Option F
+  | .Field x => some x
+  | .Bool b => some (if b then (1 : F) else 0)
+  | .None => none
+
+end Val
+
+/- Evaluate a `ZKExpr` in the context of a builder state (to account for RAM operations). -/
+def evalZKExprInState {F} [ZKField F] (witness : List F) (st : ZKBuilderState F) (e : ZKExpr F) :
+    Option F :=
+  match semantics_ram witness st.ram_sizes st.ram_ops with
+  | some ramValues => semantics_zkexpr e witness ramValues
+  | none => none
+
+/- A witness satisfies a compiled circuit state. -/
+def CircuitSatisfied {F} [ZKField F] (st : ZKBuilderState F) (witness : List F) : Prop :=
+  semantics witness st = true
+
+/- A circuit state is satisfiable if it has some satisfying witness. -/
+def StateSatisfiable {F} [ZKField F] (st : ZKBuilderState F) : Prop :=
+  ∃ w, CircuitSatisfied st w
+
+/- A minimal source-level type system; needed because the compiler works over field encodings. -/
+inductive Ty where
+  | field
+  | bool
+deriving DecidableEq, Repr
+
+inductive ValHasType {F} [ZKField F] : Val F → Ty → Prop
+  | field (x : F) : ValHasType (.Field x) .field
+  | bool (b : Bool) : ValHasType (.Bool b) .bool
+  | none : ValHasType (.None) .field
+
+inductive HasType {F} [ZKField F] : Env F → Term F → Ty → Prop
+  | var_field {env x n} :
+      env.lookup x = some (Val.Field n) →
+      HasType env (.var x) .field
+  | var_bool {env x b} :
+      env.lookup x = some (Val.Bool b) →
+      HasType env (.var x) .bool
+  | lit {env n} :
+      HasType env (.lit n) .field
+  | bool {env b} :
+      HasType env (.bool b) .bool
+  | arith {env op t₁ t₂} :
+      HasType env t₁ .field →
+      HasType env t₂ .field →
+      HasType env (.arith op t₁ t₂) .field
+  | boolB {env op t₁ t₂} :
+      HasType env t₁ .bool →
+      HasType env t₂ .bool →
+      HasType env (.boolB op t₁ t₂) .bool
+  | eq {env t₁ t₂ τ} :
+      HasType env t₁ τ →
+      HasType env t₂ τ →
+      HasType env (.eq t₁ t₂) .bool
+  | not {env t} :
+      HasType env t .bool →
+      HasType env (.not t) .bool
+  | ifz {env c t₁ t₂ τ} :
+      HasType env c .bool →
+      HasType env t₁ τ →
+      HasType env t₂ τ →
+      HasType env (.ifz c t₁ t₂) τ
+  | inSet {env t ts} :
+      HasType env t .field →
+      HasType env (.inSet t ts) .bool
+
 /--
 This file contains the correctness proofs For the ZKLean compiler.
 -/
 
--- theorem compile_preserves_semantics_rel
---   {F} [inst1 : JoltField F] [inst2 : DecidableEq F]
---   (t : Term F) (env : Env F) (v : Val F)
---   (a : ZKBuilder F (ZKExpr F)) (e : ZKExpr F) (st : ZKBuilderState F) :
---   Eval F t env v →
---   Compiles env t a →
---   run a initialZKBuilderState = (e, st) →
---   ∃ w, ZKEval w e (Val.toValue v) := by
---   intros eval compiles run_eq
---   induction compiles
---   case var_field env' x f hlookup =>
---     simp [Val.toValue]
---     cases v
---     · case Field v' =>
---       simp [pure, run] at *
---       cases' run_eq with e' st'
---       rw [← e']
---       use [f]
---       have : f = v' := by
---         cases eval
---         · case var h =>
---           rw [hlookup] at h
---           injection h with h_eq
---           injection h_eq
---       rw [← this]
---       apply ZKEval.lit
---     · case Bool b =>
---       simp [pure, run] at *
---       cases' run_eq with e' st'
---       rw [← e']
---       use [if b then 1 else 0]
---       have : (if b then 1 else 0) = f := by
---         cases eval
---         · case var h =>
---           rw [hlookup] at h
---           injection h with h_eq
---           injection h_eq
---       rw [← this]
---       apply ZKEval.lit
---   case var_bool env' x b hlookup =>
---     simp [Val.toValue]
---     cases v
---     · case Field v' =>
---       simp [pure, run] at *
---       cases' run_eq with e' st'
---       rw [← e']
---       use [if b then 1 else 0]
---       have : (if b then 1 else 0) = v' := by
---         cases eval
---         · case var h =>
---           rw [hlookup] at h
---           injection h with h_eq
---           injection h_eq
---       rw [← this]
---       apply ZKEval.lit
---     · case Bool b' =>
---       simp [pure, run] at *
---       cases' run_eq with e' st'
---       rw [← e']
---       use [if b then 1 else 0]
---       have h_eq : b = b' := by
---         cases eval
---         · case var h =>
---           rw [hlookup] at h
---           injection h with h_eq
---           injection h_eq
---       rw [h_eq]
---       apply ZKEval.lit
---   case lit env' f =>
---     sorry
---   all_goals sorry
-
 -- **Semantic Preservation**: If a term evaluates to a value and compiles successfully,
 -- then the compiled ZK expression evaluates to the same value under some witness.
 theorem compile_preserves_semantics
-  {F} [JoltField F] [DecidableEq F]
+  {F} [ZKField F] [DecidableEq F]
+  (τ : Ty)
   (t : Term F) (env : Env F) (v : Val F)
   (a : ZKBuilder F (ZKExpr F)) (e : ZKExpr F) (st₀ st₁ : ZKBuilderState F) :
+  HasType env t τ →
+  ValHasType v τ →
   Eval F t env v →
   Compiles env t a →
   runFold a st₀ = (e, st₁) →
-  ∃ w, ZKEval w e (Val.toValue v) := by sorry
+  ∀ w, CircuitSatisfied st₁ w → evalZKExprInState w st₁ e = Val.encode v := by
+  sorry
 
--- **Constraint Satisfiability**: If a term compiles successfully,
--- then the generated constraints have a satisfying witness.
-theorem compile_constraints_satisfiable
-  {F} [JoltField F] [DecidableEq F]
+-- **Preservation of Satisfiability**: For well-typed programs, compilation does not turn a satisfiable
+-- pre-existing builder state into an unsatisfiable one.
+theorem compile_preserves_satisfiable
+  {F} [ZKField F] [DecidableEq F]
+  (τ : Ty)
   (t : Term F) (env : Env F)
   (a : ZKBuilder F (ZKExpr F)) (e : ZKExpr F) (st₀ st₁ : ZKBuilderState F) :
+  HasType env t τ →
   Compiles env t a →
   runFold a st₀ = (e, st₁) →
-  ∃ w, ConstraintsSatisfied st₁.constraints w := by sorry
+  StateSatisfiable st₀ →
+  StateSatisfiable st₁ := by
+  sorry
 
--- **Type Safety Lemma**: If an arithmetic operation compiles,
+-- **Existence of a Correct Witness**: starting from a satisfiable state, compilation yields a satisfiable
+-- state, and any satisfying witness makes the output compute the correct encoded value.
+theorem compile_exists_correct_witness
+  {F} [ZKField F] [DecidableEq F]
+  (τ : Ty)
+  (t : Term F) (env : Env F) (v : Val F)
+  (a : ZKBuilder F (ZKExpr F)) (e : ZKExpr F) (st₀ st₁ : ZKBuilderState F) :
+  HasType env t τ →
+  ValHasType v τ →
+  Eval F t env v →
+  Compiles env t a →
+  runFold a st₀ = (e, st₁) →
+  StateSatisfiable st₀ →
+  ∃ w, CircuitSatisfied st₁ w ∧ evalZKExprInState w st₁ e = Val.encode v := by
+  sorry
+
+-- **Type Safety (Evaluation)**: If an arithmetic term evaluates to a field value,
 -- then both operands evaluate to field values.
-lemma compiles_arith_well_typed
-  {F} [JoltField F] [DecidableEq F]
-  (env : Env F) (op : ArithBinOp) (t₁ t₂ : Term F) (a : ZKBuilder F (ZKExpr F)) :
-  Compiles env (Term.arith op t₁ t₂) a →
-  (∃ n₁, Eval F t₁ env (Val.Field n₁)) ∧ (∃ n₂, Eval F t₂ env (Val.Field n₂)) := by sorry
+lemma eval_arith_well_typed
+  {F} [ZKField F] [DecidableEq F]
+  (env : Env F) (op : ArithBinOp) (t₁ t₂ : Term F) (n : F) :
+  Eval F (Term.arith op t₁ t₂) env (Val.Field n) →
+  (∃ n₁, Eval F t₁ env (Val.Field n₁)) ∧ (∃ n₂, Eval F t₂ env (Val.Field n₂)) := by
+  sorry
 
 -- Similarly for boolean operations
-lemma compiles_boolB_well_typed
-  {F} [JoltField F] [DecidableEq F]
-  (env : Env F) (op : BoolBinOp) (t₁ t₂ : Term F) (a : ZKBuilder F (ZKExpr F)) :
-  Compiles env (Term.boolB op t₁ t₂) a →
-  (∃ b₁, Eval F t₁ env (Val.Bool b₁)) ∧ (∃ b₂, Eval F t₂ env (Val.Bool b₂)) := by sorry
+lemma eval_boolB_well_typed
+  {F} [ZKField F] [DecidableEq F]
+  (env : Env F) (op : BoolBinOp) (t₁ t₂ : Term F) (b : Bool) :
+  Eval F (Term.boolB op t₁ t₂) env (Val.Bool b) →
+  (∃ b₁, Eval F t₁ env (Val.Bool b₁)) ∧ (∃ b₂, Eval F t₂ env (Val.Bool b₂)) := by
+  sorry
 
--- **Compiler Well-Formedness**: The compiler only accepts terms that evaluate to something.
-theorem compiler_well_formed
-  {F} [JoltField F] [DecidableEq F]
-  (t : Term F) (env : Env F) (a : ZKBuilder F (ZKExpr F)) :
-  Compiles env t a →
-  ∃ v, Eval F t env v := by
-  intro comp
-  induction comp
-  · case var_field env' x f hlookup =>
-    use (Val.Field f)
-    exact Eval.var env' x (Val.Field f) hlookup
-  · case var_bool env' x b hlookup =>
-    use (Val.Bool b)
-    exact Eval.var env' x (Val.Bool b) hlookup
-  · case lit env' f =>
-    use (Val.Field f)
-    exact Eval.lit env' f
-  · case bool env' b =>
-    use (Val.Bool b)
-    exact Eval.bool env' b
-  · case arith env' op t₁ t₂ a₁ a₂ comp₁ comp₂ ih₁ ih₂ =>
-    cases' ih₁ with v₁ h₁
-    cases' ih₂ with v₂ h₂
-    cases v₁
-    · case Field v₁' =>
-      cases v₂
-      · case Field v₂' =>
-        use (Val.Field (match op with
-          | .add => v₁' + v₂'
-          | .sub => v₁' - v₂'
-          | .mul => v₁' * v₂'))
-        apply Eval.arith env' op t₁ t₂ v₁' v₂'
-        exact h₁
-        exact h₂
-      · case Bool b => sorry -- Need type safety lemma: arith compilation requires field values
-      · case None => sorry  -- Need type safety lemma: arith compilation requires field values
-    · case Bool => sorry    -- Need type safety lemma: arith compilation requires field values
-    · case None => sorry    -- Need type safety lemma: arith compilation requires field values
-  all_goals sorry
+-- **Source Progress**: A well-typed term evaluates to some value.
+theorem well_typed_progress
+  {F} [ZKField F] [DecidableEq F]
+  (t : Term F) (env : Env F) (τ : Ty) :
+  HasType env t τ →
+  ∃ v, Eval F t env v ∧ ValHasType v τ := by
+  sorry
 
 -- **Soundness**: If we have a witness that satisfies the constraints,
 -- then the compiled expression evaluates correctly under that witness.
-theorem compile_sound {F : Type} [JoltField F] [DecidableEq F]
+theorem compile_sound {F : Type} [ZKField F] [DecidableEq F]
+    (τ : Ty)
     (t : Term F) (env : Env F) (v : Val F) (comp : ZKBuilder F (ZKExpr F)) (witness : List F)
     (zkexpr : ZKExpr F) (st₀ st₁ : ZKBuilderState F) :
+  HasType env t τ →
+  ValHasType v τ →
   Eval F t env v →
   Compiles env t comp →
   runFold comp st₀ = (zkexpr, st₁) →
-  ConstraintsSatisfied st₁.constraints witness →
-  ZKEval witness zkexpr (Val.toValue v) := by sorry
+  CircuitSatisfied st₁ witness →
+  evalZKExprInState witness st₁ zkexpr = Val.encode v := by
+  sorry
