@@ -430,20 +430,6 @@ lemma semantics_constraints_suffix_irrelevant {f} [ZKField f]
               have htl' : semantics_constraints tl (w ++ w') ram_values = true :=
                 ih htl
               simp [semantics_constraints, hc_app, hd_app, hbeq, htl']
-
-/-- Compatibility name: older code used `constraints_semantics`. -/
-abbrev constraints_semantics {f} [ZKField f] :=
-  semantics_constraints (f := f)
-
-/-- Compatibility name: older code used `JoltField` and `constraints_semantics`. -/
-lemma constraints_semantics_suffix_irrelevant {f} [JoltField f]
-    (cs : List (ZKExpr f × ZKExpr f)) (w w' : List f) (ram_values : RamOpsEval f) :
-    constraints_semantics cs w ram_values = true →
-    constraints_semantics cs (w ++ w') ram_values = true := by
-  intro h
-  simpa [constraints_semantics] using
-    semantics_constraints_suffix_irrelevant (cs := cs) (w := w) (w' := w') (ram_values := ram_values) h
-
 /--
 Soundness of a single R1CS constraint: if `a`, `b`, and `c` evaluate consistently as `x`, `y`, and
 `x*y`, then the constraints produced by `constrainR1CS a b c` are satisfied.
