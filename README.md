@@ -12,12 +12,5 @@ What you can do
 
 ```bash
 lake build
-lake exe zkflow_demo examples/01_nested_let.zk
+lake exe zkflow_demo examples/nested_let.zk
 ```
-
-.  Visualising a circuit
-
-```bash
-python3 ZkLeanCompiler/Frontend/visualize_graph.py
-```
-Produces `circuit_graph.png` with witnesses (blue), operations (yellow), constraints (orange), output (green).
