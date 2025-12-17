@@ -1,6 +1,6 @@
 # zkFlow
 
-`zkFlow` is a proof-of-concept verified compiler that takes a tiny expression language and produces a complete zero-knowledge circuit
+`zkFlow` is a (partially) verified compiler that takes a tiny expression language and produces a complete zero-knowledge circuit
 
 What you can do
 
