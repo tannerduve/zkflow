@@ -1,3 +1,0 @@
-let x = 2 + 3 in assert(x * 2 == 10) then (3 + 1)
-
-

@@ -43,6 +43,11 @@ inductive Eval (f : Type) [ZKField f] [BEq f] : Term f → Env f → Val f → P
 | not : ∀ (env : Env f) (t : Term f) (b : Bool),
     Eval f t env (Val.Bool b) →
     Eval f (~t) env (Val.Bool (!b))
+| lett : ∀ (env env' : Env f) (x : String) (t₁ t₂ : Term f) (v : Val f) (v' : Val f),
+    Eval f t₁ env v →
+    env' = Env.insert x v env →
+    Eval f t₂ env' v' →
+    Eval f (Term.lett x t₁ t₂) env v'
 | ifz_true : ∀ (env : Env f) (t₁ t₂ t₃ : Term f) (v : Val f),
     Eval f t₁ env (Val.Bool true) →
     Eval f t₂ env v →
@@ -51,6 +56,10 @@ inductive Eval (f : Type) [ZKField f] [BEq f] : Term f → Env f → Val f → P
     Eval f t₁ env (Val.Bool false) →
     Eval f t₃ env v →
     Eval f (ifz` t₁ then` t₂ else` t₃) env v
+| assert : ∀ (env : Env f) (t₁ t₂ : Term f) (v : Val f),
+    Eval f t₁ env (Val.Bool true) →
+    Eval f t₂ env v →
+    Eval f (Term.assert t₁ t₂) env v
 | inSet_true : ∀ (env : Env f) (t : Term f) (ts : List f) (x : f),
     Eval f t env (Val.Field x) →
     x ∈ ts →
@@ -59,6 +68,10 @@ inductive Eval (f : Type) [ZKField f] [BEq f] : Term f → Env f → Val f → P
     Eval f t env (Val.Field x) →
     x ∉ ts →
     Eval f (t inn ts) env (Val.Bool false)
+| seq : ∀ (env : Env f) (t₁ t₂ : Term f) (v v' : Val f),
+    Eval f t₁ env v' →
+    Eval f t₂ env v →
+    Eval f (t₁ ; t₂) env v
 
 /-
 A functional version of our operational semantics
@@ -109,7 +122,20 @@ def eval {f} [ZKField f] [BEq f] [DecidableEq f] : Term f → Env f → Option (
   | some (Val.Field n) =>
       if n ≠ 0 then eval t₁ env else eval t₂ env
   | _ => none
+| Term.lett x t₁ t₂, env =>
+  match eval t₁ env with
+  | some v => eval t₂ (env.insert x v)
+  | none => none
+| Term.assert t₁ t₂, env =>
+  match eval t₁ env with
+  | some (Val.Bool true) => eval t₂ env
+  | some (Val.Bool false) => none
+  | _ => none
 | Term.inSet t ts, env =>
   match eval t env with
   | some (Val.Field x) => some (Val.Bool (x ∈ ts.toFinset))
   | _ => none
+| Term.seq t₁ t₂, env =>
+  match eval t₁ env with
+  | some _ => eval t₂ env
+  | none => none

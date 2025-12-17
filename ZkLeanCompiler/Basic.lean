@@ -10,7 +10,7 @@ inductive Jolt where
 instance : ZKBackend Jolt where
   -- ZKRepr : Type -> Type
   ZKRepr := fun
-  | UInt32 => Nat
+  | _ => Nat
   -- | Unit => UInt32
 
 #check ZKBackend.ZKRepr

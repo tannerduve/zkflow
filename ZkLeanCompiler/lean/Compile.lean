@@ -119,6 +119,13 @@ def compileExpr {f} [ZKField f] [DecidableEq f] (t : Term f) (env : Env f) : ZKB
     constrainEq (ZKExpr.Sub (ZKExpr.Literal 1) x) z
     assertIsBool z
     return z
+  | Term.lett x t1 t2 => do
+    match eval t1 env with
+    | some v =>
+        let env' := env.insert x v
+        compileExpr t2 env'
+    | none =>
+        compileExpr t2 env
   | Term.inSet t ts => do
     -- 1) compile the inner term
     let x ← compileExpr t env
@@ -136,6 +143,14 @@ def compileExpr {f} [ZKField f] [DecidableEq f] (t : Term f) (env : Env f) : ZKB
     assertIsBool b                                               -- b ∈ {0,1}
      -- 5) return Boolean indicator
     return b
+  | Term.assert t₁ t₂ => do
+    let cond ← compileExpr t₁ env
+    assertIsBool cond
+    constrainEq cond (ZKExpr.Literal 1)
+    compileExpr t₂ env
+  | Term.seq t₁ t₂ => do
+    let _ ← compileExpr t₁ env
+    compileExpr t₂ env
 
 inductive Compiles {f} [ZKField f] [DecidableEq f] :
     Env f → Term f → ZKBuilder f (ZKExpr f) → Prop
@@ -194,6 +209,14 @@ inductive Compiles {f} [ZKField f] [DecidableEq f] :
         constrainEq (ZKExpr.Sub (ZKExpr.Literal 1) x) z
         assertIsBool z
         pure z)
+| lett_eval {env x t₁ t₂ v body} :
+    eval t₁ env = some v →
+    Compiles (env.insert x v) t₂ body →
+    Compiles env (Term.lett x t₁ t₂) body
+| lett_skip {env x t₁ t₂ body} :
+    eval t₁ env = none →
+    Compiles env t₂ body →
+    Compiles env (Term.lett x t₁ t₂) body
 | inSet {env t ts it} :
     Compiles env t it →
     Compiles env (Term.inSet t ts)
@@ -208,6 +231,20 @@ inductive Compiles {f} [ZKField f] [DecidableEq f] :
         constrainEq (ZKExpr.Mul prod inv) (ZKExpr.Sub (ZKExpr.Literal 1) b)
         assertIsBool b
         pure b)
+| assert {env cond body ic ib} :
+    Compiles env cond ic → Compiles env body ib →
+    Compiles env (Term.assert cond body)
+      (do
+        let c ← ic
+        assertIsBool c
+        constrainEq c (ZKExpr.Literal 1)
+        ib)
+| seq {env t₁ t₂ ia ib} :
+    Compiles env t₁ ia → Compiles env t₂ ib →
+    Compiles env (Term.seq t₁ t₂)
+      (do
+        let _ ← ia
+        ib)
 
 lemma compilers_match
   {f} (instJF : ZKField f) (instDEq : DecidableEq f)
@@ -242,6 +279,18 @@ lemma compilers_match
   · case not ha =>
     rw [compileExpr]
     simp [ha]
+  · case lett_eval heval hcomp ih =>
+    rw [compileExpr]
+    simp [heval, hcomp, ih]
+  · case lett_skip heval hcomp ih =>
+    rw [compileExpr]
+    simp [heval, hcomp, ih]
   · case inSet hcomp =>
     rw [compileExpr]
     simp [hcomp]
+  · case assert hcond hbody ihcond ihbody =>
+    rw [compileExpr]
+    simp [ihcond, ihbody, hcond, hbody]
+  · case seq ht₁ ht₂ iht₁ iht₂ =>
+    rw [compileExpr]
+    simp [iht₁, iht₂, ht₁, ht₂]

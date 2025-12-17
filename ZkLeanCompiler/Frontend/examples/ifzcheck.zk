@@ -1,4 +1,0 @@
-assert (if false then 1 else 2) == 2 then (2 + 1);
-assert (2 * 4 == 8) then true
-
-#witnesses

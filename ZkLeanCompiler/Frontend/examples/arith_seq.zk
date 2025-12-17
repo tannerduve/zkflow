@@ -1,3 +1,0 @@
-let x = 5 in (5 * 4); 
-true || false
-# witness [20, 1]
