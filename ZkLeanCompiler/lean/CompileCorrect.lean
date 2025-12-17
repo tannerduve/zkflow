@@ -170,6 +170,281 @@ lemma semantics_zkexpr_suffix_irrelevant {f} [ZKField f]
   simpa [semantics_zkexpr] using hev
 
 /--
+If a `ZKExpr` evaluates successfully, then all witness indices it references are in bounds of the
+given witness list.
+-/
+lemma semantics_zkexpr_some_witnessIndices_bound {f} [ZKField f]
+    (e : ZKExpr f) (w : List f) (ram_values : RamOpsEval f) {x : f} :
+    semantics_zkexpr e w ram_values = some x →
+    ∀ i, i ∈ witnessIndices e → i < w.length := by
+  intro hx
+  induction e generalizing x with
+  | Literal lit =>
+      intro i hi
+      simp [witnessIndices] at hi
+  | WitnessVar id =>
+      intro i hi
+      have hw : w[id]? = some x := by
+        simpa [semantics_zkexpr, semantics_zkexpr.eval] using hx
+      have hid : id < w.length := (List.getElem?_eq_some_iff.mp hw).1
+      have : i = id := by
+        simpa [witnessIndices] using hi
+      simpa [this] using hid
+  | Add e₁ e₂ ih₁ ih₂ =>
+      intro i hi
+      have hxE : semantics_zkexpr.eval w ram_values (ZKExpr.Add e₁ e₂) = some x := by
+        simpa [semantics_zkexpr] using hx
+      cases h1 : semantics_zkexpr.eval w ram_values e₁ with
+      | none =>
+          have : False := by
+            simp [semantics_zkexpr.eval, h1] at hxE
+          exact False.elim this
+      | some x₁ =>
+          cases h2 : semantics_zkexpr.eval w ram_values e₂ with
+          | none =>
+              have : False := by
+                simp [semantics_zkexpr.eval, h1, h2] at hxE
+              exact False.elim this
+          | some x₂ =>
+              have hs1 : semantics_zkexpr e₁ w ram_values = some x₁ := by
+                simpa [semantics_zkexpr] using h1
+              have hs2 : semantics_zkexpr e₂ w ram_values = some x₂ := by
+                simpa [semantics_zkexpr] using h2
+              have hi' : i ∈ witnessIndices e₁ ∨ i ∈ witnessIndices e₂ := by
+                simpa [witnessIndices, Finset.mem_union] using hi
+              cases hi' with
+              | inl hi1 => exact ih₁ hs1 i hi1
+              | inr hi2 => exact ih₂ hs2 i hi2
+  | Sub e₁ e₂ ih₁ ih₂ =>
+      intro i hi
+      have hxE : semantics_zkexpr.eval w ram_values (ZKExpr.Sub e₁ e₂) = some x := by
+        simpa [semantics_zkexpr] using hx
+      cases h1 : semantics_zkexpr.eval w ram_values e₁ with
+      | none =>
+          have : False := by
+            simp [semantics_zkexpr.eval, h1] at hxE
+          exact False.elim this
+      | some x₁ =>
+          cases h2 : semantics_zkexpr.eval w ram_values e₂ with
+          | none =>
+              have : False := by
+                simp [semantics_zkexpr.eval, h1, h2] at hxE
+              exact False.elim this
+          | some x₂ =>
+              have hs1 : semantics_zkexpr e₁ w ram_values = some x₁ := by
+                simpa [semantics_zkexpr] using h1
+              have hs2 : semantics_zkexpr e₂ w ram_values = some x₂ := by
+                simpa [semantics_zkexpr] using h2
+              have hi' : i ∈ witnessIndices e₁ ∨ i ∈ witnessIndices e₂ := by
+                simpa [witnessIndices, Finset.mem_union] using hi
+              cases hi' with
+              | inl hi1 => exact ih₁ hs1 i hi1
+              | inr hi2 => exact ih₂ hs2 i hi2
+  | Neg e ih =>
+      intro i hi
+      have hxE : semantics_zkexpr.eval w ram_values (ZKExpr.Neg e) = some x := by
+        simpa [semantics_zkexpr] using hx
+      cases h1 : semantics_zkexpr.eval w ram_values e with
+      | none =>
+          have : False := by
+            simp [semantics_zkexpr.eval, h1] at hxE
+          exact False.elim this
+      | some x₁ =>
+          have hs : semantics_zkexpr e w ram_values = some x₁ := by
+            simpa [semantics_zkexpr] using h1
+          have hi' : i ∈ witnessIndices e := by
+            simpa [witnessIndices] using hi
+          exact ih hs i hi'
+  | Mul e₁ e₂ ih₁ ih₂ =>
+      intro i hi
+      have hxE : semantics_zkexpr.eval w ram_values (ZKExpr.Mul e₁ e₂) = some x := by
+        simpa [semantics_zkexpr] using hx
+      cases h1 : semantics_zkexpr.eval w ram_values e₁ with
+      | none =>
+          have : False := by
+            simp [semantics_zkexpr.eval, h1] at hxE
+          exact False.elim this
+      | some x₁ =>
+          cases h2 : semantics_zkexpr.eval w ram_values e₂ with
+          | none =>
+              have : False := by
+                simp [semantics_zkexpr.eval, h1, h2] at hxE
+              exact False.elim this
+          | some x₂ =>
+              have hs1 : semantics_zkexpr e₁ w ram_values = some x₁ := by
+                simpa [semantics_zkexpr] using h1
+              have hs2 : semantics_zkexpr e₂ w ram_values = some x₂ := by
+                simpa [semantics_zkexpr] using h2
+              have hi' : i ∈ witnessIndices e₁ ∨ i ∈ witnessIndices e₂ := by
+                simpa [witnessIndices, Finset.mem_union] using hi
+              cases hi' with
+              | inl hi1 => exact ih₁ hs1 i hi1
+              | inr hi2 => exact ih₂ hs2 i hi2
+  | ComposedLookupMLE table c0 c1 c2 c3 ih0 ih1 ih2 ih3 =>
+      intro i hi
+      have hxE :
+          semantics_zkexpr.eval w ram_values (ZKExpr.ComposedLookupMLE table c0 c1 c2 c3) = some x := by
+        simpa [semantics_zkexpr] using hx
+      cases h0 : semantics_zkexpr.eval w ram_values c0 with
+      | none =>
+          have : False := by
+            simp [semantics_zkexpr.eval, h0] at hxE
+          exact False.elim this
+      | some x0 =>
+          cases h1 : semantics_zkexpr.eval w ram_values c1 with
+          | none =>
+              have : False := by
+                simp [semantics_zkexpr.eval, h0, h1] at hxE
+              exact False.elim this
+          | some x1 =>
+              cases h2 : semantics_zkexpr.eval w ram_values c2 with
+              | none =>
+                  have : False := by
+                    simp [semantics_zkexpr.eval, h0, h1, h2] at hxE
+                  exact False.elim this
+              | some x2 =>
+                  cases h3 : semantics_zkexpr.eval w ram_values c3 with
+                  | none =>
+                      have : False := by
+                        simp [semantics_zkexpr.eval, h0, h1, h2, h3] at hxE
+                      exact False.elim this
+                  | some x3 =>
+                      have hs0 : semantics_zkexpr c0 w ram_values = some x0 := by
+                        simpa [semantics_zkexpr] using h0
+                      have hs1 : semantics_zkexpr c1 w ram_values = some x1 := by
+                        simpa [semantics_zkexpr] using h1
+                      have hs2 : semantics_zkexpr c2 w ram_values = some x2 := by
+                        simpa [semantics_zkexpr] using h2
+                      have hs3 : semantics_zkexpr c3 w ram_values = some x3 := by
+                        simpa [semantics_zkexpr] using h3
+                      have hi' :
+                          i ∈ witnessIndices c0 ∨
+                            i ∈ witnessIndices c1 ∨
+                              i ∈ witnessIndices c2 ∨ i ∈ witnessIndices c3 := by
+                        simpa [witnessIndices, Finset.mem_union, or_assoc] using hi
+                      rcases hi' with hi0 | hiRest
+                      · exact ih0 hs0 i hi0
+                      rcases hiRest with hi1 | hiRest
+                      · exact ih1 hs1 i hi1
+                      rcases hiRest with hi2 | hi3
+                      · exact ih2 hs2 i hi2
+                      · exact ih3 hs3 i hi3
+  | LookupMLE table e1 e2 ih1 ih2 =>
+      intro i hi
+      have hxE : semantics_zkexpr.eval w ram_values (ZKExpr.LookupMLE table e1 e2) = some x := by
+        simpa [semantics_zkexpr] using hx
+      cases h1 : semantics_zkexpr.eval w ram_values e1 with
+      | none =>
+          have : False := by
+            simp [semantics_zkexpr.eval, h1] at hxE
+          exact False.elim this
+      | some x1 =>
+          cases h2 : semantics_zkexpr.eval w ram_values e2 with
+          | none =>
+              have : False := by
+                simp [semantics_zkexpr.eval, h1, h2] at hxE
+              exact False.elim this
+          | some x2 =>
+              have hs1 : semantics_zkexpr e1 w ram_values = some x1 := by
+                simpa [semantics_zkexpr] using h1
+              have hs2 : semantics_zkexpr e2 w ram_values = some x2 := by
+                simpa [semantics_zkexpr] using h2
+              have hi' : i ∈ witnessIndices e1 ∨ i ∈ witnessIndices e2 := by
+                simpa [witnessIndices, Finset.mem_union] using hi
+              cases hi' with
+              | inl hi1' => exact ih1 hs1 i hi1'
+              | inr hi2' => exact ih2 hs2 i hi2'
+  | LookupMaterialized table e ih =>
+      intro i hi
+      have hxE :
+          semantics_zkexpr.eval w ram_values (ZKExpr.LookupMaterialized table e) = some x := by
+        simpa [semantics_zkexpr] using hx
+      cases h1 : semantics_zkexpr.eval w ram_values e with
+      | none =>
+          have : False := by
+            simp [semantics_zkexpr.eval, h1] at hxE
+          exact False.elim this
+      | some x1 =>
+          have hs : semantics_zkexpr e w ram_values = some x1 := by
+            simpa [semantics_zkexpr] using h1
+          have hi' : i ∈ witnessIndices e := by
+            simpa [witnessIndices] using hi
+          exact ih hs i hi'
+  | RamOp op_index =>
+      intro i hi
+      simp [witnessIndices] at hi
+
+/--
+If a constraint system is satisfied by a witness `w`, then it is also satisfied by any extension
+`w ++ w'`.
+-/
+lemma semantics_constraints_suffix_irrelevant {f} [ZKField f]
+    (cs : List (ZKExpr f × ZKExpr f)) (w w' : List f) (ram_values : RamOpsEval f) :
+    semantics_constraints cs w ram_values = true →
+    semantics_constraints cs (w ++ w') ram_values = true := by
+  induction cs with
+  | nil =>
+      intro _
+      simp [semantics_constraints]
+  | cons hd tl ih =>
+      rcases hd with ⟨c, d⟩
+      intro h
+      cases hsc : semantics_zkexpr c w ram_values with
+      | none =>
+          have : False := by
+            simp [semantics_constraints, hsc] at h
+          exact False.elim this
+      | some cf =>
+          cases hsd : semantics_zkexpr d w ram_values with
+          | none =>
+              have : False := by
+                simp [semantics_constraints, hsc, hsd] at h
+              exact False.elim this
+          | some df =>
+              have h' : cf = df ∧ semantics_constraints tl w ram_values = true := by
+                simpa [semantics_constraints, hsc, hsd] using h
+              rcases h' with ⟨hEq, htl⟩
+              have hbeq : (cf == df) = true := (beq_iff_eq).2 hEq
+              have hc_bound : ∀ i, i ∈ witnessIndices c → i < w.length :=
+                semantics_zkexpr_some_witnessIndices_bound (e := c) (w := w) (ram_values := ram_values)
+                  (x := cf) hsc
+              have hd_bound : ∀ i, i ∈ witnessIndices d → i < w.length :=
+                semantics_zkexpr_some_witnessIndices_bound (e := d) (w := w) (ram_values := ram_values)
+                  (x := df) hsd
+              have hc_suff :
+                  semantics_zkexpr c w ram_values = semantics_zkexpr c (w ++ w') ram_values :=
+                semantics_zkexpr_suffix_irrelevant (e := c) (w := w) (w' := w') (ram_values := ram_values)
+                  hc_bound
+              have hd_suff :
+                  semantics_zkexpr d w ram_values = semantics_zkexpr d (w ++ w') ram_values :=
+                semantics_zkexpr_suffix_irrelevant (e := d) (w := w) (w' := w') (ram_values := ram_values)
+                  hd_bound
+              have hc_app : semantics_zkexpr c (w ++ w') ram_values = some cf := by
+                have : some cf = semantics_zkexpr c (w ++ w') ram_values := by
+                  simpa [hsc] using hc_suff
+                simpa using this.symm
+              have hd_app : semantics_zkexpr d (w ++ w') ram_values = some df := by
+                have : some df = semantics_zkexpr d (w ++ w') ram_values := by
+                  simpa [hsd] using hd_suff
+                simpa using this.symm
+              have htl' : semantics_constraints tl (w ++ w') ram_values = true :=
+                ih htl
+              simp [semantics_constraints, hc_app, hd_app, hbeq, htl']
+
+/-- Compatibility name: older code used `constraints_semantics`. -/
+abbrev constraints_semantics {f} [ZKField f] :=
+  semantics_constraints (f := f)
+
+/-- Compatibility name: older code used `JoltField` and `constraints_semantics`. -/
+lemma constraints_semantics_suffix_irrelevant {f} [JoltField f]
+    (cs : List (ZKExpr f × ZKExpr f)) (w w' : List f) (ram_values : RamOpsEval f) :
+    constraints_semantics cs w ram_values = true →
+    constraints_semantics cs (w ++ w') ram_values = true := by
+  intro h
+  simpa [constraints_semantics] using
+    semantics_constraints_suffix_irrelevant (cs := cs) (w := w) (w' := w') (ram_values := ram_values) h
+
+/--
 Soundness of a single R1CS constraint: if `a`, `b`, and `c` evaluate consistently as `x`, `y`, and
 `x*y`, then the constraints produced by `constrainR1CS a b c` are satisfied.
 -/

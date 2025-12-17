@@ -1,5 +1,6 @@
 import «ZkLeanCompiler».Lean.AST
 import Mathlib.Data.Nat.Basic
+import Mathlib.Data.Finset.Basic
 open Nat
 
 /-!
